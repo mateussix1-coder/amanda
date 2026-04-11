@@ -262,11 +262,6 @@ export default function App() {
             <TabsTrigger value="ai-assistant" className="flex items-center gap-2 rounded-md data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
               <MessageSquare className="h-4 w-4" /> Assistente IA
             </TabsTrigger>
-            {user && (
-              <TabsTrigger value="history" className="flex items-center gap-2 rounded-md data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
-                <History className="h-4 w-4" /> Histórico
-              </TabsTrigger>
-            )}
           </TabsList>
 
           <TabsContent value="audit" className="space-y-8">
@@ -286,12 +281,6 @@ export default function App() {
                 </Button>
                 {results.length > 0 && (
                   <div className="flex gap-2">
-                    {user && (
-                      <Button variant="outline" onClick={saveAudit} disabled={isSaving} className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
-                        <Save className={cn("mr-2 h-4 w-4", isSaving && "animate-spin")} />
-                        {isSaving ? "Salvando..." : "Salvar"}
-                      </Button>
-                    )}
                     <Button onClick={() => exportToExcel(results)} variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                       <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
                     </Button>
@@ -487,48 +476,6 @@ export default function App() {
               <p className="text-sm text-zinc-500">Converse com a inteligência artificial para analisar os relatórios carregados.</p>
             </div>
             <ChatAssistant results={results} summary={summary} />
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-6">
-            <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
-              <h2 className="text-xl font-semibold font-heading text-zinc-800">Histórico de Auditorias</h2>
-            </div>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {history.map((audit) => (
-                <Card 
-                  key={audit.id} 
-                  className="cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all rounded-xl border-zinc-200" 
-                  onClick={() => {
-                    setResults(audit.results);
-                    setActiveTab("audit");
-                  }}
-                >
-                  <CardHeader className="bg-zinc-50/50 border-b border-zinc-100 pb-4">
-                    <CardTitle className="text-base font-heading text-zinc-800">{audit.name}</CardTitle>
-                    <CardDescription className="text-xs mt-1">
-                      {audit.createdAt?.toDate().toLocaleString() || "Processando..."}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-2">
-                    <div className="flex justify-between items-center text-sm p-2 bg-rose-50 rounded-lg">
-                      <span className="text-rose-700 font-medium">Divergências</span>
-                      <span className="font-bold text-rose-700 bg-white px-2 py-0.5 rounded-md shadow-sm">{audit.summary.divergencias}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm p-2 bg-amber-50 rounded-lg">
-                      <span className="text-amber-700 font-medium">Faltantes</span>
-                      <span className="font-bold text-amber-700 bg-white px-2 py-0.5 rounded-md shadow-sm">{audit.summary.faltantes}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {history.length === 0 && (
-                <div className="col-span-full py-16 text-center bg-white rounded-xl border border-zinc-200 border-dashed">
-                  <History className="h-12 w-12 text-zinc-300 mx-auto mb-4" />
-                  <p className="text-zinc-500 font-medium">Nenhuma auditoria salva encontrada.</p>
-                  <p className="text-sm text-zinc-400 mt-1">Realize uma auditoria e clique em "Salvar no Histórico".</p>
-                </div>
-              )}
-            </div>
           </TabsContent>
         </Tabs>
       </main>
