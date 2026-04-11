@@ -3,7 +3,7 @@ import { FileUpload } from './components/FileUpload';
 import { KPISection } from './components/KPISection';
 import { AuditTable } from './components/AuditTable';
 import { ColumnMapper } from './components/ColumnMapper';
-import { parseFile, mapData, performAudit, exportToExcel, detectSequentialGaps } from './services/freightService';
+import { parseFile, mapData, performAudit, exportToExcel, exportToPDF, shareToWhatsApp, detectSequentialGaps } from './services/freightService';
 import { autoMapColumns } from './services/geminiService';
 import { DashboardCharts } from './components/DashboardCharts';
 import { ChatAssistant } from './components/ChatAssistant';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Download, Play, RefreshCcw, FileSpreadsheet, Sparkles, LogIn, LogOut, History, Save, User as UserIcon, Truck, MessageSquare, CheckCircle2, Loader2 } from 'lucide-react';
+import { Download, Play, RefreshCcw, FileSpreadsheet, Sparkles, LogIn, LogOut, History, Save, User as UserIcon, Truck, MessageSquare, CheckCircle2, Loader2, FileText, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { useFirebase } from './contexts/FirebaseContext';
@@ -23,7 +23,8 @@ const DEFAULT_MAPPING: ColumnMapping = {
   cte: '',
   freteEmpresa: '',
   freteMotorista: '',
-  margem: ''
+  margem: '',
+  peso: ''
 };
 
 export default function App() {
@@ -114,10 +115,11 @@ export default function App() {
       const mapping = { ...DEFAULT_MAPPING };
       columnsA.forEach(col => {
         const lower = col.toLowerCase();
-        if (lower.includes('cte') || lower.includes('numero')) mapping.cte = col;
-        if (lower.includes('normal') || lower.includes('empresa') || lower.includes('frete_emp')) mapping.freteEmpresa = col;
-        if (lower.includes('motorista') || lower.includes('mot')) mapping.freteMotorista = col;
-        if (lower.includes('margem')) mapping.margem = col;
+        if (lower === 'ctrc' || lower === 'cte' || lower.includes('numero') || lower.includes('documento')) mapping.cte = col;
+        if (lower === 'frete empr.' || lower.includes('frete empr') || lower.includes('empresa')) mapping.freteEmpresa = col;
+        if (lower === 'frete mot.' || lower.includes('frete mot') || lower.includes('motorista')) mapping.freteMotorista = col;
+        if (lower.includes('margem') || lower === '%' || lower.includes('result')) mapping.margem = col;
+        if (lower.includes('peso') || lower.includes('ton') || lower.includes('kg')) mapping.peso = col;
       });
       setMappingA(mapping);
     }
@@ -128,10 +130,11 @@ export default function App() {
       const mapping = { ...DEFAULT_MAPPING };
       columnsB.forEach(col => {
         const lower = col.toLowerCase();
-        if (lower.includes('cte') || lower.includes('numero')) mapping.cte = col;
-        if (lower.includes('conta') || lower.includes('frete') || lower.includes('empresa')) mapping.freteEmpresa = col;
-        if (lower.includes('motorista') || lower.includes('mot')) mapping.freteMotorista = col;
-        if (lower.includes('margem')) mapping.margem = col;
+        if (lower === 'cte' || lower === 'ctrc' || lower.includes('numero') || lower.includes('documento')) mapping.cte = col;
+        if (lower === 'valor frete' || lower.includes('valor frete') || lower.includes('empresa')) mapping.freteEmpresa = col;
+        if (lower === 'vl carreteiro líquido' || lower.includes('carreteiro líq') || lower.includes('motorista')) mapping.freteMotorista = col;
+        if (lower.includes('margem') || lower === '%' || lower.includes('result')) mapping.margem = col;
+        if (lower.includes('peso') || lower.includes('ton') || lower.includes('kg')) mapping.peso = col;
       });
       setMappingB(mapping);
     }
@@ -197,12 +200,17 @@ export default function App() {
     let margemTotal = 0;
 
     results.forEach(r => {
-      if (r.divergencias.freteEmpresa) valorTotalDivergencia += r.divergencias.freteEmpresa;
-      if (r.divergencias.freteMotorista) valorTotalDivergencia += r.divergencias.freteMotorista;
-      // Not adding margin diff to total monetary divergence as it might be a percentage or just a different metric, 
-      // but let's add it if it's monetary. Assuming it's monetary based on context.
-      if (r.divergencias.margem) valorTotalDivergencia += r.divergencias.margem;
+      // Cálculo do Valor em Risco: Soma das divergências financeiras + valor dos documentos faltantes
+      if (r.status === 'BOTH_DIVERGENT') {
+        if (r.divergencias.freteEmpresa) valorTotalDivergencia += r.divergencias.freteEmpresa;
+        if (r.divergencias.freteMotorista) valorTotalDivergencia += r.divergencias.freteMotorista;
+      } else if (r.status === 'A_ONLY') {
+        valorTotalDivergencia += (r.sistemaA?.freteEmpresa || 0);
+      } else if (r.status === 'B_ONLY') {
+        valorTotalDivergencia += (r.sistemaB?.freteEmpresa || 0);
+      }
 
+      // Soma da Margem Total (A)
       if (r.sistemaA?.margem) margemTotal += r.sistemaA.margem;
     });
 
@@ -305,11 +313,17 @@ export default function App() {
                     {user && (
                       <Button variant="outline" onClick={saveAudit} disabled={isSaving} className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
                         <Save className={cn("mr-2 h-4 w-4", isSaving && "animate-spin")} />
-                        {isSaving ? "Salvando..." : "Salvar no Histórico"}
+                        {isSaving ? "Salvando..." : "Salvar"}
                       </Button>
                     )}
-                    <Button onClick={() => exportToExcel(results)} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-                      <Download className="mr-2 h-4 w-4" /> Exportar XLSX
+                    <Button onClick={() => exportToExcel(results)} variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                      <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
+                    </Button>
+                    <Button onClick={() => exportToPDF(results, summary)} variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50">
+                      <FileText className="mr-2 h-4 w-4" /> PDF
+                    </Button>
+                    <Button onClick={() => shareToWhatsApp(results, summary)} className="bg-green-600 hover:bg-green-700 text-white shadow-sm">
+                      <Share2 className="mr-2 h-4 w-4" /> WhatsApp
                     </Button>
                   </div>
                 )}
@@ -323,13 +337,13 @@ export default function App() {
                     <div className="p-2 bg-blue-100 rounded-lg">
                       <FileSpreadsheet className="h-5 w-5 text-blue-600" />
                     </div>
-                    Relatório Sistema A
+                    Sistema A (Relatório DL)
                   </CardTitle>
-                  <CardDescription>Upload do relatório principal da empresa</CardDescription>
+                  <CardDescription>Upload do relatório principal da empresa (atua go.pdf)</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-6">
                   <FileUpload 
-                    label="Sistema A (Empresa)" 
+                    label="Sistema A (Relatório DL)" 
                     selectedFile={fileA} 
                     onFileSelect={setFileA} 
                   />
@@ -375,13 +389,13 @@ export default function App() {
                     <div className="p-2 bg-purple-100 rounded-lg">
                       <FileSpreadsheet className="h-5 w-5 text-purple-600" />
                     </div>
-                    Relatório Sistema B
+                    Sistema B (Relatório Carreteiro)
                   </CardTitle>
-                  <CardDescription>Upload do relatório de conferência</CardDescription>
+                  <CardDescription>Upload do relatório de conferência (gw go.pdf)</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-6">
                   <FileUpload 
-                    label="Sistema B (Conferência)" 
+                    label="Sistema B (Relatório Carreteiro)" 
                     selectedFile={fileB} 
                     onFileSelect={setFileB} 
                   />

@@ -3,6 +3,7 @@ export interface CTEData {
   freteEmpresa: number;
   freteMotorista: number;
   margem: number;
+  peso: number;
   raw: any;
 }
 
@@ -15,6 +16,7 @@ export interface AuditResult {
     freteEmpresa?: number;
     freteMotorista?: number;
     margem?: number;
+    peso?: number;
   };
 }
 
@@ -23,6 +25,7 @@ export interface ColumnMapping {
   freteEmpresa: string;
   freteMotorista: string;
   margem: string;
+  peso: string;
 }
 
 export interface AuditSummary {

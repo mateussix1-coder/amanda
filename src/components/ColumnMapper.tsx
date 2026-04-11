@@ -72,6 +72,18 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({ columns, mapping, on
             </SelectContent>
           </Select>
         </div>
+
+        <div className="space-y-2">
+          <Label>Coluna Peso (Ton/Kg)</Label>
+          <Select value={mapping.peso} onValueChange={(v) => handleChange('peso', v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a coluna" />
+            </SelectTrigger>
+            <SelectContent>
+              {columns.map(col => <SelectItem key={col} value={col}>{col}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );

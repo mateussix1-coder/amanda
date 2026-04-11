@@ -80,6 +80,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({ results }) => {
                 <TableHead className="text-right">Empresa (B)</TableHead>
                 <TableHead className="text-right">Motorista (A)</TableHead>
                 <TableHead className="text-right">Motorista (B)</TableHead>
+                <TableHead className="text-right">Peso (A)</TableHead>
+                <TableHead className="text-right">Peso (B)</TableHead>
                 <TableHead className="text-right">Margem (A)</TableHead>
                 <TableHead className="text-right">Margem (B)</TableHead>
               </TableRow>
@@ -113,6 +115,12 @@ export const AuditTable: React.FC<AuditTableProps> = ({ results }) => {
                 </TableCell>
                 <TableCell className={cn("text-right", result.divergencias.freteMotorista && "text-red-600 font-semibold")}>
                   {formatCurrency(result.sistemaB?.freteMotorista)}
+                </TableCell>
+                <TableCell className={cn("text-right", result.divergencias.peso && "text-red-600 font-semibold")}>
+                  {result.sistemaA?.peso !== undefined ? result.sistemaA.peso.toLocaleString('pt-BR') : '-'}
+                </TableCell>
+                <TableCell className={cn("text-right", result.divergencias.peso && "text-red-600 font-semibold")}>
+                  {result.sistemaB?.peso !== undefined ? result.sistemaB.peso.toLocaleString('pt-BR') : '-'}
                 </TableCell>
                 <TableCell className={cn("text-right", result.divergencias.margem && "text-red-600 font-semibold")}>
                   {formatPercent(result.sistemaA?.margem)}

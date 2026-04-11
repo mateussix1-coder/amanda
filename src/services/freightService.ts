@@ -1,6 +1,8 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { CTEData, ColumnMapping, AuditResult } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { CTEData, ColumnMapping, AuditResult, AuditSummary } from '../types';
 import * as pdfjsLib from 'pdfjs-dist';
 import { parsePDFText } from './geminiService';
 // @ts-ignore - Vite import
@@ -132,10 +134,12 @@ export const sanitizeValue = (val: any): number => {
 
 export const mapData = (rawRows: any[], mapping: ColumnMapping): CTEData[] => {
   return rawRows.map(row => ({
-    cte: String(row[mapping.cte] || '').trim(),
+    // Remove leading zeros and trim spaces for better matching (e.g., "000197" -> "197")
+    cte: String(row[mapping.cte] || '').trim().replace(/^0+/, ''),
     freteEmpresa: sanitizeValue(row[mapping.freteEmpresa]),
     freteMotorista: sanitizeValue(row[mapping.freteMotorista]),
     margem: sanitizeValue(row[mapping.margem]),
+    peso: sanitizeValue(row[mapping.peso]),
     raw: row
   })).filter(item => item.cte !== '');
 };
@@ -166,16 +170,29 @@ export const performAudit = (dataA: CTEData[], dataB: CTEData[]): AuditResult[] 
         divergencias: {}
       });
     } else if (itemA && itemB) {
+      let pesoA = itemA.peso;
+      let pesoB = itemB.peso;
+
+      // Normalização de Peso (Ton vs Kg)
+      // Se um valor estiver na casa dos milhares (Kg) e o outro em dezenas (Ton), normaliza para Ton
+      if (pesoA > 0 && pesoB > 0) {
+        if (pesoA >= pesoB * 100) pesoA = pesoA / 1000;
+        if (pesoB >= pesoA * 100) pesoB = pesoB / 1000;
+      }
+
       const diffEmpresa = Math.abs(itemA.freteEmpresa - itemB.freteEmpresa);
       const diffMotorista = Math.abs(itemA.freteMotorista - itemB.freteMotorista);
       const diffMargem = Math.abs(itemA.margem - itemB.margem);
+      const diffPeso = Math.abs(pesoA - pesoB);
 
       // Arredonda para 2 casas decimais para evitar problemas de precisão de ponto flutuante
       const diffEmpresaRounded = Math.round(diffEmpresa * 100) / 100;
       const diffMotoristaRounded = Math.round(diffMotorista * 100) / 100;
       const diffMargemRounded = Math.round(diffMargem * 100) / 100;
+      const diffPesoRounded = Math.round(diffPeso * 100) / 100;
 
-      const isDivergent = diffEmpresaRounded > 0.00 || diffMotoristaRounded > 0.00 || diffMargemRounded > 0.00;
+      // Status é divergente apenas se houver diferença financeira real (Empresa ou Motorista)
+      const isDivergent = diffEmpresaRounded > 0.00 || diffMotoristaRounded > 0.00;
 
       results.push({
         cte,
@@ -186,6 +203,7 @@ export const performAudit = (dataA: CTEData[], dataB: CTEData[]): AuditResult[] 
           freteEmpresa: diffEmpresaRounded > 0.00 ? diffEmpresaRounded : undefined,
           freteMotorista: diffMotoristaRounded > 0.00 ? diffMotoristaRounded : undefined,
           margem: diffMargemRounded > 0.00 ? diffMargemRounded : undefined,
+          peso: diffPesoRounded > 0.00 ? diffPesoRounded : undefined,
         }
       });
     }
@@ -239,4 +257,81 @@ export const exportToExcel = (results: AuditResult[]) => {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Auditoria");
   XLSX.writeFile(workbook, `Auditoria_Frete_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
+export const exportToPDF = (results: AuditResult[], summary: AuditSummary) => {
+  const doc = new jsPDF();
+  
+  // Título
+  doc.setFontSize(18);
+  doc.text('Relatório de Auditoria Logística', 14, 22);
+  
+  // Resumo
+  doc.setFontSize(11);
+  doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 32);
+  doc.text(`Total Analisados: ${summary.totalAnalizados}`, 14, 38);
+  doc.text(`Faltantes: ${summary.faltantes}`, 14, 44);
+  doc.text(`Divergências: ${summary.divergencias}`, 14, 50);
+  doc.text(`Valor em Risco: R$ ${summary.valorTotalDivergencia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 56);
+  
+  if (summary.lacunasSequenciais && summary.lacunasSequenciais.length > 0) {
+    doc.text(`Lacunas Sequenciais: ${summary.lacunasSequenciais.join(', ')}`, 14, 62);
+  }
+
+  // Tabela
+  const tableData = results.map(r => [
+    r.cte,
+    r.status === 'A_ONLY' ? 'Faltante (B)' : r.status === 'B_ONLY' ? 'Faltante (A)' : r.status === 'BOTH_DIVERGENT' ? 'Divergente' : 'OK',
+    r.sistemaA?.freteEmpresa?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-',
+    r.sistemaB?.freteEmpresa?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-',
+    r.sistemaA?.freteMotorista?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-',
+    r.sistemaB?.freteMotorista?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'
+  ]);
+
+  autoTable(doc, {
+    startY: 70,
+    head: [['CTE', 'Status', 'Empresa (A)', 'Empresa (B)', 'Motorista (A)', 'Motorista (B)']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
+    styles: { fontSize: 9 }
+  });
+
+  doc.save(`Auditoria_Frete_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+export const shareToWhatsApp = (results: AuditResult[], summary: AuditSummary) => {
+  const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  
+  let text = `*Relatório de Auditoria Logística*\n`;
+  text += `Data: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
+  text += `*Resumo Executivo:*\n`;
+  text += `📊 Total Analisados: ${summary.totalAnalizados}\n`;
+  text += `⚠️ Faltantes: ${summary.faltantes}\n`;
+  text += `❌ Divergências: ${summary.divergencias}\n`;
+  text += `💰 Valor em Risco: ${formatCurrency(summary.valorTotalDivergencia)}\n\n`;
+
+  if (summary.lacunasSequenciais && summary.lacunasSequenciais.length > 0) {
+    text += `🔍 *Lacunas Sequenciais:* ${summary.lacunasSequenciais.join(', ')}\n\n`;
+  }
+
+  const issues = results.filter(r => r.status !== 'BOTH_MATCH');
+  if (issues.length > 0) {
+    text += `*Principais Problemas:*\n`;
+    issues.slice(0, 10).forEach(r => {
+      if (r.status === 'A_ONLY') text += `- CTE ${r.cte}: Faltante no Sistema B\n`;
+      else if (r.status === 'B_ONLY') text += `- CTE ${r.cte}: Faltante no Sistema A\n`;
+      else text += `- CTE ${r.cte}: Divergência de Valores\n`;
+    });
+    if (issues.length > 10) {
+      text += `... e mais ${issues.length - 10} problemas.\n`;
+    }
+  } else {
+    text += `✅ Nenhuma divergência encontrada. Tudo conciliado!\n`;
+  }
+
+  text += `\nGerado por Amanda Gestão`;
+
+  const encodedText = encodeURIComponent(text);
+  window.open(`https://wa.me/?text=${encodedText}`, '_blank');
 };
