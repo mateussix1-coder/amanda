@@ -244,32 +244,6 @@ export default function App() {
               <p className="text-sm text-zinc-500 font-medium hidden sm:block">Auditoria de Transportes</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            {authLoading ? (
-              <div className="h-10 w-10 animate-pulse rounded-full bg-zinc-200" />
-            ) : user ? (
-              <div className="flex items-center gap-3">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-zinc-900">{user.displayName}</p>
-                  <p className="text-xs text-zinc-500">{user.email}</p>
-                </div>
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt={user.displayName || ''} className="h-10 w-10 rounded-full border border-zinc-200 shadow-sm" referrerPolicy="no-referrer" />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center shadow-sm">
-                    <UserIcon className="h-5 w-5 text-zinc-500" />
-                  </div>
-                )}
-                <Button variant="ghost" size="icon" onClick={logout} title="Sair" className="text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100">
-                  <LogOut className="h-5 w-5" />
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={login} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm rounded-lg">
-                <LogIn className="mr-2 h-4 w-4" /> Entrar com Google
-              </Button>
-            )}
-          </div>
         </div>
       </header>
 
