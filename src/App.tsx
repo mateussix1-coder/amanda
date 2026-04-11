@@ -416,29 +416,36 @@ export default function App() {
                 size="lg" 
                 disabled={!canAudit || isProcessing} 
                 onClick={handleAudit}
-                className="px-12 py-6 text-lg font-heading font-semibold shadow-md transition-all hover:scale-105 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-12 py-6 text-lg font-heading font-semibold shadow-md transition-all hover:scale-105 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed min-w-[280px]"
               >
                 {isProcessing ? (
-                  <RefreshCcw className="mr-2 h-6 w-6 animate-spin" />
+                  <>
+                    <RefreshCcw className="mr-2 h-6 w-6 animate-spin" />
+                    Processando...
+                  </>
                 ) : (
-                  <Play className="mr-2 h-6 w-6" />
+                  <>
+                    <Play className="mr-2 h-6 w-6" />
+                    Iniciar Auditoria
+                  </>
                 )}
-                {isProcessing ? "Processando..." : "Iniciar Auditoria"}
               </Button>
-              {!canAudit && (fileA || fileB) && !isProcessing && (
-                <p className="text-xs text-zinc-500 animate-pulse">
+              {!isProcessing && !canAudit && (fileA || fileB) && (
+                <p className="text-xs text-zinc-500">
                   {!fileA || !fileB ? "Carregue os dois arquivos para continuar." : 
-                   (!mappingA.cte || !mappingB.cte) ? "Certifique-se de mapear a coluna 'CTE' em ambos os arquivos." : 
+                   (!mappingA.cte || !mappingB.cte) ? "Mapeie a coluna 'CTE' em ambos os arquivos." : 
                    "Aguardando extração de dados..."}
                 </p>
               )}
             </div>
 
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {results.length > 0 && (
                 <motion.div 
+                  key="audit-results-container"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
                   className="space-y-8"
                 >
                   <KPISection summary={summary} />
