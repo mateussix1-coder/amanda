@@ -156,23 +156,33 @@ export default function App() {
   const handleAudit = () => {
     setIsProcessing(true);
     setTimeout(() => {
-      const dataA = mapData(rawA, mappingA);
-      const dataB = mapData(rawB, mappingB);
-      const auditResults = performAudit(dataA, dataB);
-      setResults(auditResults);
-      setIsProcessing(false);
-      
-      // Check for 100% match
-      const is100PercentMatch = auditResults.length > 0 && 
-        auditResults.every(r => r.status === 'BOTH_MATCH');
+      try {
+        const dataA = mapData(rawA, mappingA);
+        const dataB = mapData(rawB, mappingB);
+        const auditResults = performAudit(dataA, dataB);
+        setResults(auditResults);
+        setIsProcessing(false);
         
-      if (is100PercentMatch) {
-        confetti({
-          particleCount: 150,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#10b981', '#34d399', '#059669']
-        });
+        // Check for 100% match
+        const is100PercentMatch = auditResults.length > 0 && 
+          auditResults.every(r => r.status === 'BOTH_MATCH');
+          
+        if (is100PercentMatch) {
+          try {
+            confetti({
+              particleCount: 150,
+              spread: 70,
+              origin: { y: 0.6 },
+              colors: ['#10b981', '#34d399', '#059669']
+            });
+          } catch (e) {
+            console.error("Confetti error:", e);
+          }
+        }
+      } catch (error) {
+        console.error("Audit processing error:", error);
+        setErrorMessage("Erro ao processar auditoria: " + (error as Error).message);
+        setIsProcessing(false);
       }
     }, 800);
   };
