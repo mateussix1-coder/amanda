@@ -439,29 +439,19 @@ export default function App() {
               )}
             </div>
 
-            <AnimatePresence mode="wait">
+            <div className="space-y-8">
               {results.length > 0 && (
-                <motion.div 
-                  key="audit-results-container"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-8"
-                >
+                <div className="space-y-8">
                   <KPISection summary={summary} />
                   
-                  {summary.divergencias === 0 && summary.faltantes === 0 && results.length > 0 && (
-                    <motion.div 
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-2 shadow-sm"
-                    >
+                  {summary.divergencias === 0 && summary.faltantes === 0 && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-2 shadow-sm">
                       <div className="bg-emerald-100 p-3 rounded-full">
                         <CheckCircle2 className="h-8 w-8 text-emerald-600" />
                       </div>
                       <h3 className="text-xl font-bold text-emerald-800 font-heading">Auditoria 100% Conciliada!</h3>
                       <p className="text-emerald-600 font-medium">Nenhuma divergência ou CTE faltante encontrado. Excelente trabalho!</p>
-                    </motion.div>
+                    </div>
                   )}
 
                   <DashboardCharts results={results} summary={summary} />
@@ -482,9 +472,9 @@ export default function App() {
                       <AuditTable results={results} />
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+            </div>
           </TabsContent>
 
           <TabsContent value="ai-assistant" className="space-y-6">
