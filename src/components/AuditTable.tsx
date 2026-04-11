@@ -82,7 +82,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({ results }) => {
                 <TableHead className="text-right">Motorista (B)</TableHead>
                 <TableHead className="text-right">Peso (A)</TableHead>
                 <TableHead className="text-right">Peso (B)</TableHead>
-                <TableHead className="text-right">Margem (A)</TableHead>
+                <TableHead className="text-right">Dif. Motorista</TableHead>
                 <TableHead className="text-right">Margem (B)</TableHead>
               </TableRow>
             </TableHeader>
@@ -122,8 +122,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({ results }) => {
                 <TableCell className={cn("text-right", result.divergencias.peso && "text-red-600 font-semibold")}>
                   {result.sistemaB?.peso !== undefined ? result.sistemaB.peso.toLocaleString('pt-BR') : '-'}
                 </TableCell>
-                <TableCell className={cn("text-right", result.divergencias.margem && "text-red-600 font-semibold")}>
-                  {formatPercent(result.sistemaA?.margem)}
+                <TableCell className={cn("text-right", Math.abs(result.diferencaMotorista) > 0.01 && "text-red-600 font-bold")}>
+                  {formatCurrency(result.diferencaMotorista)}
                 </TableCell>
                 <TableCell className={cn("text-right", result.divergencias.margem && "text-red-600 font-semibold")}>
                   {formatPercent(result.sistemaB?.margem)}

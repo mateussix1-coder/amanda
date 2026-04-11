@@ -3,7 +3,7 @@ import { FileUpload } from './components/FileUpload';
 import { KPISection } from './components/KPISection';
 import { AuditTable } from './components/AuditTable';
 import { ColumnMapper } from './components/ColumnMapper';
-import { parseFile, mapData, performAudit, exportToExcel, exportToPDF, shareToWhatsApp, detectSequentialGaps } from './services/freightService';
+import { parseFile, mapData, performAudit, exportToExcel, exportToPDF, shareToWhatsApp, detectSequentialGaps, calculateSummary } from './services/freightService';
 import { autoMapColumns } from './services/geminiService';
 import { DashboardCharts } from './components/DashboardCharts';
 import { ChatAssistant } from './components/ChatAssistant';
@@ -35,6 +35,7 @@ export default function App() {
   
   const [rawA, setRawA] = useState<any[]>([]);
   const [rawB, setRawB] = useState<any[]>([]);
+  const [footerTotalA, setFooterTotalA] = useState<number>(0);
   
   const [mappingA, setMappingA] = useState<ColumnMapping>(DEFAULT_MAPPING);
   const [mappingB, setMappingB] = useState<ColumnMapping>(DEFAULT_MAPPING);
@@ -56,7 +57,10 @@ export default function App() {
       setResults([]); // Clear results when new file is uploaded
       setIsParsingA(true);
       parseFile(fileA)
-        .then(setRawA)
+        .then(res => {
+          setRawA(res.data);
+          if (res.footerTotal) setFooterTotalA(res.footerTotal);
+        })
         .catch(err => {
           console.error(err);
           setErrorMessage("Erro ao processar o arquivo A: " + err.message);
@@ -65,6 +69,7 @@ export default function App() {
         .finally(() => setIsParsingA(false));
     } else {
       setRawA([]);
+      setFooterTotalA(0);
     }
   }, [fileA]);
 
@@ -73,7 +78,7 @@ export default function App() {
       setResults([]); // Clear results when new file is uploaded
       setIsParsingB(true);
       parseFile(fileB)
-        .then(setRawB)
+        .then(res => setRawB(res.data))
         .catch(err => {
           console.error(err);
           setErrorMessage("Erro ao processar o arquivo B: " + err.message);
@@ -206,37 +211,8 @@ export default function App() {
   };
 
   const summary: AuditSummary = useMemo(() => {
-    let valorTotalDivergencia = 0;
-    let margemTotal = 0;
-
-    results.forEach(r => {
-      // Cálculo do Valor em Risco: Soma das divergências financeiras + valor dos documentos faltantes
-      if (r.status === 'BOTH_DIVERGENT') {
-        if (r.divergencias.freteEmpresa) valorTotalDivergencia += r.divergencias.freteEmpresa;
-        if (r.divergencias.freteMotorista) valorTotalDivergencia += r.divergencias.freteMotorista;
-      } else if (r.status === 'A_ONLY') {
-        valorTotalDivergencia += (r.sistemaA?.freteEmpresa || 0);
-      } else if (r.status === 'B_ONLY') {
-        valorTotalDivergencia += (r.sistemaB?.freteEmpresa || 0);
-      }
-
-      // Soma da Margem Total (A): Calculada matematicamente (Receita - Custo) para garantir precisão com o rodapé
-      const receitaA = r.sistemaA?.freteEmpresa || 0;
-      const custoA = r.sistemaA?.freteMotorista || 0;
-      margemTotal += (receitaA - custoA);
-    });
-
-    const lacunasSequenciais = detectSequentialGaps(results.map(r => r.cte));
-
-    return {
-      totalAnalizados: results.length,
-      faltantes: results.filter(r => r.status === 'A_ONLY' || r.status === 'B_ONLY').length,
-      divergencias: results.filter(r => r.status === 'BOTH_DIVERGENT').length,
-      valorTotalDivergencia,
-      margemTotal,
-      lacunasSequenciais
-    };
-  }, [results]);
+    return calculateSummary(results, footerTotalA);
+  }, [results, footerTotalA]);
 
   const canAudit = rawA.length > 0 && rawB.length > 0 && 
                   mappingA.cte && mappingB.cte;

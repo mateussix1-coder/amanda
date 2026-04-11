@@ -49,7 +49,7 @@ export const KPISection: React.FC<KPISectionProps> = ({ summary }) => {
         </CardHeader>
         <CardContent className="pt-6">
           <div className="text-3xl font-bold font-heading text-amber-600">{formatCurrency(summary.valorTotalDivergencia)}</div>
-          <p className="text-xs text-zinc-500 mt-1">Soma das diferenças de valor</p>
+          <p className="text-xs text-zinc-500 mt-1">Soma das pendências reais (Faltantes + Diferenças)</p>
         </CardContent>
       </Card>
 
@@ -62,7 +62,7 @@ export const KPISection: React.FC<KPISectionProps> = ({ summary }) => {
         </CardHeader>
         <CardContent className="pt-6">
           <div className="text-3xl font-bold font-heading text-emerald-600">{formatCurrency(summary.margemTotal)}</div>
-          <p className="text-xs text-zinc-500 mt-1">Soma da margem no Sistema A</p>
+          <p className="text-xs text-zinc-500 mt-1">Valor absoluto do rodapé (Result.)</p>
         </CardContent>
       </Card>
 

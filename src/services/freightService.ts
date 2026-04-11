@@ -49,7 +49,7 @@ const extractPagesFromPDF = async (file: File): Promise<string[]> => {
   }
 };
 
-export const parseFile = async (file: File): Promise<any[]> => {
+export const parseFile = async (file: File): Promise<{ data: any[], footerTotal?: number }> => {
   return new Promise(async (resolve, reject) => {
     const extension = file.name.split('.').pop()?.toLowerCase();
 
@@ -57,7 +57,7 @@ export const parseFile = async (file: File): Promise<any[]> => {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        complete: (results) => resolve(results.data),
+        complete: (results) => resolve({ data: results.data }),
         error: (error) => reject(error),
       });
     } else if (extension === 'xlsx' || extension === 'xls') {
@@ -68,7 +68,7 @@ export const parseFile = async (file: File): Promise<any[]> => {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet);
-        resolve(json);
+        resolve({ data: json });
       };
       reader.onerror = (error) => reject(error);
       reader.readAsArrayBuffer(file);
@@ -76,6 +76,7 @@ export const parseFile = async (file: File): Promise<any[]> => {
       try {
         const pages = await extractPagesFromPDF(file);
         const allData: any[] = [];
+        let footerTotal: number | undefined;
         
         // Processar em chunks de 10 páginas para reduzir o número de chamadas e economizar cota
         const chunkSize = 10;
@@ -83,7 +84,13 @@ export const parseFile = async (file: File): Promise<any[]> => {
           const chunk = pages.slice(i, i + chunkSize).join('\n');
           const chunkData = await parsePDFText(chunk);
           if (Array.isArray(chunkData)) {
-            allData.push(...chunkData);
+            chunkData.forEach(item => {
+              if (item.isFooter) {
+                footerTotal = sanitizeValue(item.valorTotal);
+              } else {
+                allData.push(item);
+              }
+            });
           }
           // Pequeno delay para evitar hitting Rate Limit (RPM)
           if (i + chunkSize < pages.length) {
@@ -91,7 +98,7 @@ export const parseFile = async (file: File): Promise<any[]> => {
           }
         }
         
-        resolve(allData);
+        resolve({ data: allData, footerTotal });
     } catch (error: any) {
       console.error("Erro ao processar PDF:", error);
       let userMsg = "Falha ao extrair dados do PDF usando IA.";
@@ -170,6 +177,7 @@ export const performAudit = (dataA: CTEData[], dataB: CTEData[]): AuditResult[] 
         cte,
         status: 'A_ONLY',
         sistemaA: itemA,
+        diferencaMotorista: 0,
         divergencias: {}
       });
     } else if (!itemA && itemB) {
@@ -177,6 +185,7 @@ export const performAudit = (dataA: CTEData[], dataB: CTEData[]): AuditResult[] 
         cte,
         status: 'B_ONLY',
         sistemaB: itemB,
+        diferencaMotorista: 0,
         divergencias: {}
       });
     } else if (itemA && itemB) {
@@ -209,6 +218,7 @@ export const performAudit = (dataA: CTEData[], dataB: CTEData[]): AuditResult[] 
         status: isDivergent ? 'BOTH_DIVERGENT' : 'BOTH_MATCH',
         sistemaA: itemA,
         sistemaB: itemB,
+        diferencaMotorista: itemA.freteMotorista - itemB.freteMotorista,
         divergencias: {
           freteEmpresa: diffEmpresaRounded > 0.00 ? diffEmpresaRounded : undefined,
           freteMotorista: diffMotoristaRounded > 0.00 ? diffMotoristaRounded : undefined,
@@ -344,4 +354,32 @@ export const shareToWhatsApp = (results: AuditResult[], summary: AuditSummary) =
 
   const encodedText = encodeURIComponent(text);
   window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+};
+
+export const calculateSummary = (results: AuditResult[], footerTotalA?: number): AuditSummary => {
+  const totalAnalizados = results.length;
+  const faltantes = results.filter(r => r.status === 'A_ONLY' || r.status === 'B_ONLY').length;
+  const divergencias = results.filter(r => r.status === 'BOTH_DIVERGENT').length;
+  
+  // Valor em Risco = (Total CTEs apenas em A) + (Diferença absoluta entre Motorista A e B nos divergentes)
+  let valorTotalDivergencia = 0;
+  results.forEach(r => {
+    if (r.status === 'A_ONLY' && r.sistemaA) {
+      valorTotalDivergencia += r.sistemaA.freteEmpresa;
+    } else if (r.status === 'BOTH_DIVERGENT') {
+      valorTotalDivergencia += Math.abs(r.diferencaMotorista);
+    }
+  });
+
+  const ctes = results.map(r => r.cte);
+  const lacunasSequenciais = detectSequentialGaps(ctes);
+
+  return {
+    totalAnalizados,
+    faltantes,
+    divergencias,
+    valorTotalDivergencia,
+    margemTotal: footerTotalA || 0,
+    lacunasSequenciais
+  };
 };

@@ -127,7 +127,8 @@ export const parsePDFText = async (text: string) => {
            - "margem": A margem de lucro (Margem, %, Result., Resultado).
         4. Preserve os valores originais como strings (ex: "15.226,07", "39.540", "0,00").
         5. Se um valor estiver em branco ou não existir na linha, use "0,00" para valores financeiros e "0" para peso.
-        6. Retorne APENAS o array JSON válido, sem formatação markdown ou explicações.`,
+        6. BUSCA DE RODAPÉ: Procure pelo campo "Result." ou "Resultado" no final do documento (geralmente na última página). Se encontrar um valor total lá (ex: "18.483,22"), inclua um objeto especial no final do array com a chave "isFooter": true e "valorTotal": "valor_encontrado".
+        7. Retorne APENAS o array JSON válido, sem formatação markdown ou explicações.`,
         responseMimeType: "application/json"
       }
     });

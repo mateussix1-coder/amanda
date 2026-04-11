@@ -12,6 +12,7 @@ export interface AuditResult {
   status: 'A_ONLY' | 'B_ONLY' | 'BOTH_DIVERGENT' | 'BOTH_MATCH';
   sistemaA?: CTEData;
   sistemaB?: CTEData;
+  diferencaMotorista: number;
   divergencias: {
     freteEmpresa?: number;
     freteMotorista?: number;
@@ -32,8 +33,8 @@ export interface AuditSummary {
   totalAnalizados: number;
   faltantes: number;
   divergencias: number;
-  valorTotalDivergencia: number;
-  margemTotal: number;
+  valorTotalDivergencia: number; // Valor em Risco
+  margemTotal: number; // Valor fixo do rodapé (Result.)
   lacunasSequenciais?: string[];
 }
 
