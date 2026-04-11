@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="module">
+    import * as pdfjsLib from 'https://unpkg.com/pdfjs-dist@5.6.205/build/pdf.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.6.205/build/pdf.worker.min.mjs`;
+    
+    async function test() {
+      try {
+        console.log('starting');
+        const loadingTask = pdfjsLib.getDocument('https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf');
+        const pdf = await loadingTask.promise;
+        console.log('success', pdf.numPages);
+      } catch (e) {
+        console.log('error', e.message);
+      }
+    }
+    test();
+  </script>
+</head>
+<body></body>
+</html>

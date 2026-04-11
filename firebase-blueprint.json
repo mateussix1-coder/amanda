@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Audit": {
+      "title": "Audit",
+      "description": "Saved freight audit results",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "summary": {
+          "type": "object",
+          "properties": {
+            "totalAnalizados": { "type": "number" },
+            "faltantes": { "type": "number" },
+            "divergencias": { "type": "number" }
+          }
+        },
+        "results": { "type": "array", "items": { "type": "object" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "results", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/audits/{auditId}": {
+      "schema": "Audit",
+      "description": "Saved audit records"
+    }
+  }
+}
