@@ -210,8 +210,10 @@ export default function App() {
         valorTotalDivergencia += (r.sistemaB?.freteEmpresa || 0);
       }
 
-      // Soma da Margem Total (A)
-      if (r.sistemaA?.margem) margemTotal += r.sistemaA.margem;
+      // Soma da Margem Total (A): Calculada matematicamente (Receita - Custo) para garantir precisão com o rodapé
+      const receitaA = r.sistemaA?.freteEmpresa || 0;
+      const custoA = r.sistemaA?.freteMotorista || 0;
+      margemTotal += (receitaA - custoA);
     });
 
     const lacunasSequenciais = detectSequentialGaps(results.map(r => r.cte));

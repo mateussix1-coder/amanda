@@ -1,13 +1,24 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialize Gemini API
-// process.env.GEMINI_API_KEY is automatically injected in the frontend by the platform
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Initialize Gemini API lazily to prevent crashes if API key is missing
+let aiClient: GoogleGenAI | null = null;
+
+const getAiClient = () => {
+  if (!aiClient) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY is not defined. AI features will not work.");
+    }
+    aiClient = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
+  }
+  return aiClient;
+};
 
 export const autoMapColumns = async (columns: string[]) => {
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: [
         { text: `Mapeie as colunas fornecidas para as chaves do sistema.
         Colunas disponíveis: ${columns.join(', ')}
@@ -94,8 +105,9 @@ export const parsePDFText = async (text: string) => {
   console.log("Enviando texto para IA (tamanho):", text.length);
 
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: [
         { text: `Extraia os dados da tabela deste texto de relatório logístico:\n\n${text}` }
       ],
@@ -163,6 +175,7 @@ export const parsePDFText = async (text: string) => {
 
 export const chatWithAuditor = async (messages: any[], summary: any, simplifiedResults: any[]) => {
   try {
+    const ai = getAiClient();
     const systemInstruction = `Você é um Especialista em Auditoria Logística focado em reconciliação de fretes.
 
     FONTES DE DADOS (NÃO INVERTA):
@@ -197,7 +210,7 @@ export const chatWithAuditor = async (messages: any[], summary: any, simplifiedR
       * Resumo Executivo: Total de CTEs analisados: 3. Documentos faltantes: 1. Divergências de valor: 1. Valor em Risco: R$ 19.565,27. Margem Total (A): R$ 18.483,22.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: messages,
       config: {
         systemInstruction: systemInstruction,

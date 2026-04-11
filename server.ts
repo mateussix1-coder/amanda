@@ -1,6 +1,5 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
 import path from "path";
 
 async function startServer() {
@@ -8,8 +7,6 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json({ limit: '50mb' }));
-
-  // API Routes (Moved to frontend geminiService.ts)
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
