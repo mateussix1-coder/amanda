@@ -77,21 +77,31 @@ export const parseFile = async (file: File): Promise<any[]> => {
         const pages = await extractPagesFromPDF(file);
         const allData: any[] = [];
         
-        // Processar em chunks de 2 páginas para equilibrar contexto e limite de tokens
-        const chunkSize = 2;
+        // Processar em chunks de 10 páginas para reduzir o número de chamadas e economizar cota
+        const chunkSize = 10;
         for (let i = 0; i < pages.length; i += chunkSize) {
           const chunk = pages.slice(i, i + chunkSize).join('\n');
           const chunkData = await parsePDFText(chunk);
           if (Array.isArray(chunkData)) {
             allData.push(...chunkData);
           }
+          // Pequeno delay para evitar hitting Rate Limit (RPM)
+          if (i + chunkSize < pages.length) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
         
         resolve(allData);
-      } catch (error: any) {
-        console.error("Erro ao processar PDF:", error);
-        reject(new Error(`Falha ao extrair dados do PDF usando IA: ${error.message || 'Erro desconhecido'}. Verifique se o arquivo não é uma imagem digitalizada ou muito grande.`));
+    } catch (error: any) {
+      console.error("Erro ao processar PDF:", error);
+      let userMsg = "Falha ao extrair dados do PDF usando IA.";
+      if (error.message?.includes("429") || error.message?.includes("quota")) {
+        userMsg = "Limite de uso da IA atingido (Cota Grátis). Por favor, aguarde 1 minuto e tente novamente ou use um arquivo menor.";
+      } else if (error.message?.includes("safety")) {
+        userMsg = "O conteúdo do PDF foi bloqueado pelos filtros de segurança da IA.";
       }
+      reject(new Error(`${userMsg} Detalhes: ${error.message || 'Erro desconhecido'}`));
+    }
     } else {
       reject(new Error('Formato de arquivo não suportado. Use CSV, Excel ou PDF.'));
     }

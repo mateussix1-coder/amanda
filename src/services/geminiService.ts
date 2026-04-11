@@ -18,7 +18,7 @@ export const autoMapColumns = async (columns: string[]) => {
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: [
         { text: `Mapeie as colunas fornecidas para as chaves do sistema.
         Colunas disponíveis: ${columns.join(', ')}
@@ -107,7 +107,7 @@ export const parsePDFText = async (text: string) => {
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: [
         { text: `Extraia os dados da tabela deste texto de relatório logístico:\n\n${text}` }
       ],
@@ -210,7 +210,7 @@ export const chatWithAuditor = async (messages: any[], summary: any, simplifiedR
       * Resumo Executivo: Total de CTEs analisados: 3. Documentos faltantes: 1. Divergências de valor: 1. Valor em Risco: R$ 19.565,27. Margem Total (A): R$ 18.483,22.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: messages,
       config: {
         systemInstruction: systemInstruction,
