@@ -159,6 +159,7 @@ export default function App() {
   };
 
   const handleAudit = () => {
+    if (isParsingA || isParsingB) return;
     setIsProcessing(true);
     setTimeout(() => {
       try {
@@ -168,6 +169,12 @@ export default function App() {
         setResults(auditResults);
         setIsProcessing(false);
         
+        // Scroll to results
+        const resultsElement = document.getElementById('audit-results');
+        if (resultsElement) {
+          resultsElement.scrollIntoView({ behavior: 'smooth' });
+        }
+
         // Check for 100% match
         const is100PercentMatch = auditResults.length > 0 && 
           auditResults.every(r => r.status === 'BOTH_MATCH');
@@ -460,7 +467,7 @@ export default function App() {
               )}
             </div>
 
-            <div className="space-y-8">
+            <div className="space-y-8" id="audit-results">
               {results.length > 0 && (
                 <div className="space-y-8">
                   <KPISection summary={summary} />

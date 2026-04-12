@@ -78,11 +78,18 @@ export const parseFile = async (file: File): Promise<{ data: any[], footerTotal?
         const allData: any[] = [];
         let footerTotal: number | undefined;
         
-        // Processar em chunks de 10 páginas para reduzir o número de chamadas e economizar cota
+        // Processar em chunks de 10 páginas em paralelo para maior velocidade
         const chunkSize = 10;
+        const chunkPromises = [];
+        
         for (let i = 0; i < pages.length; i += chunkSize) {
           const chunk = pages.slice(i, i + chunkSize).join('\n');
-          const chunkData = await parsePDFText(chunk);
+          chunkPromises.push(parsePDFText(chunk));
+        }
+        
+        const chunksResults = await Promise.all(chunkPromises);
+        
+        chunksResults.forEach(chunkData => {
           if (Array.isArray(chunkData)) {
             chunkData.forEach(item => {
               if (item.isFooter) {
@@ -92,11 +99,7 @@ export const parseFile = async (file: File): Promise<{ data: any[], footerTotal?
               }
             });
           }
-          // Pequeno delay para evitar hitting Rate Limit (RPM)
-          if (i + chunkSize < pages.length) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
+        });
         
         resolve({ data: allData, footerTotal });
     } catch (error: any) {
@@ -221,7 +224,12 @@ export const performAudit = (dataA: CTEData[], dataB: CTEData[]): AuditResult[] 
     }
   });
 
-  return results;
+  // Sort results by CTE number for better stability and readability
+  return results.sort((a, b) => {
+    const numA = parseInt(a.cte.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.cte.replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
 };
 
 const createAuditResult = (cte: string, itemA: CTEData, itemB: CTEData): AuditResult => {

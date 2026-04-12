@@ -15,31 +15,38 @@ const getProcessingClient = () => {
 };
 
 export const autoMapColumns = async (columns: string[]) => {
-  try {
-    const engine = getProcessingClient();
-    const response = await engine.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        { text: `Mapeie as colunas fornecidas para as chaves do sistema.
-        Colunas disponíveis: ${columns.join(', ')}
+  let retries = 2;
+  while (retries >= 0) {
+    try {
+      const engine = getProcessingClient();
+      const response = await engine.models.generateContent({
+        model: "gemini-3.1-flash-lite-preview",
+        contents: [
+          { text: `Mapeie as colunas fornecidas para as chaves do sistema.
+          Colunas disponíveis: ${columns.join(', ')}
 
-        DICAS DE MAPEAMENTO (Tente encontrar correspondências exatas ou parciais):
-        - cte: Procure por "CTRC", "CTe", "Documento", "Número"
-        - freteEmpresa: Procure por "Frete Empr.", "Valor frete", "Frete Empresa", "Normal"
-        - freteMotorista: Procure por "Frete Mot.", "Vl Carreteiro Líquido", "Frete Motorista"
-        - peso: Procure por "Peso", "Ton", "Kg"
-        - margem: Procure por "Margem", "%", "Result.", "Resultado"` }
-      ],
-      config: { 
-        systemInstruction: "Você é um motor de mapeamento de dados logísticos. Retorne APENAS um JSON válido com as chaves exatas: cte, freteEmpresa, freteMotorista, margem, peso. Os valores devem ser os nomes EXATOS das colunas fornecidas na lista. Se não encontrar uma coluna correspondente, use uma string vazia ''.",
-        responseMimeType: "application/json"
+          DICAS DE MAPEAMENTO (Tente encontrar correspondências exatas ou parciais):
+          - cte: Procure por "CTRC", "CTe", "Documento", "Número"
+          - freteEmpresa: Procure por "Frete Empr.", "Valor frete", "Frete Empresa", "Normal"
+          - freteMotorista: Procure por "Frete Mot.", "Vl Carreteiro Líquido", "Frete Motorista"
+          - peso: Procure por "Peso", "Ton", "Kg"
+          - margem: Procure por "Margem", "%", "Result.", "Resultado"` }
+        ],
+        config: { 
+          systemInstruction: "Você é um motor de mapeamento de dados logísticos. Retorne APENAS um JSON válido com as chaves exatas: cte, freteEmpresa, freteMotorista, margem, peso. Os valores devem ser os nomes EXATOS das colunas fornecidas na lista. Se não encontrar uma coluna correspondente, use uma string vazia ''.",
+          responseMimeType: "application/json"
+        }
+      });
+
+      return JSON.parse(response.text || '{}');
+    } catch (error) {
+      if (retries === 0) {
+        console.error("Erro no mapeamento após tentativas:", error);
+        throw error;
       }
-    });
-
-    return JSON.parse(response.text || '{}');
-  } catch (error) {
-    console.error("Erro no mapeamento:", error);
-    throw error;
+      retries--;
+      await new Promise(r => setTimeout(r, 1000));
+    }
   }
 };
 
@@ -104,123 +111,140 @@ export const parsePDFText = async (text: string) => {
 
   console.log("Processando texto (tamanho):", text.length);
 
-  try {
-    const engine = getProcessingClient();
-    const response = await engine.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        { text: `Extraia os dados da tabela deste texto de relatório logístico:\n\n${text}` }
-      ],
-      config: {
-        systemInstruction: `Você é um motor de extração de dados estruturados de relatórios logísticos.
-        
-        Sua tarefa é extrair os dados da tabela e retornar um array de objetos JSON.
-        
-        REGRAS CRÍTICAS DE EXTRAÇÃO (PREVENÇÃO DE EMBARALHAMENTO):
-        1. Cada linha da tabela de fretes deve ser um objeto no array.
-        2. NUNCA misture valores entre linhas. O valor de uma linha pertence SOMENTE àquele CTE. Preste muita atenção ao alinhamento.
-        3. Padronize as chaves do JSON. Use SEMPRE as seguintes chaves exatas:
-           - "cte": O número do documento (CTRC, CTe, Número).
-           - "freteEmpresa": O valor cobrado do cliente (Frete Empr., Valor frete, Normal).
-           - "freteMotorista": O valor pago ao motorista (Frete Mot., Vl Carreteiro Líquido).
-           - "peso": O peso da carga (Peso, Ton, Kg).
-           - "margem": A margem de lucro (Margem, %, Result., Resultado).
-        4. Preserve os valores originais como strings (ex: "15.226,07", "39.540", "0,00").
-        5. Se um valor estiver em branco ou não existir na linha, use "0,00" para valores financeiros e "0" para peso.
-        6. BUSCA DE RODAPÉ: Procure pelo campo "Result." ou "Resultado" no final do documento (geralmente na última página). Se encontrar um valor total lá (ex: "18.483,22"), inclua um objeto especial no final do array com a chave "isFooter": true e "valorTotal": "valor_encontrado".
-        7. Retorne APENAS o array JSON válido, sem formatação markdown ou explicações.`,
-        responseMimeType: "application/json"
-      }
-    });
-    
-    const responseText = response.text;
-    console.log("Processamento concluído (tamanho):", responseText?.length || 0);
-    if (!responseText) return [];
-    
+  let retries = 2;
+  while (retries >= 0) {
     try {
-      const parsed = JSON.parse(responseText);
-      console.log("Dados processados com sucesso. Itens:", parsed.length);
-      return parsed;
-    } catch (parseError) {
-      console.warn("Dados malformados detectados, tentando reparar...");
-      const repaired = repairJson(responseText);
-      try {
-        const parsedRepaired = JSON.parse(repaired);
-        console.log("Dados reparados com sucesso. Itens:", parsedRepaired.length);
-        return parsedRepaired;
-      } catch (repairError) {
-        console.error("Falha crítica ao processar dados:", responseText);
-        // Fallback: extração via regex de objetos individuais
-        const objects = responseText.match(/\{[^{}]+\}/g);
-        if (objects) {
-          console.log("Tentando extração via Regex. Objetos encontrados:", objects.length);
-          const results = [];
-          for (const objStr of objects) {
-            try {
-              results.push(JSON.parse(objStr));
-            } catch (e) {}
-          }
-          return results;
+      const engine = getProcessingClient();
+      const response = await engine.models.generateContent({
+        model: "gemini-3.1-flash-lite-preview",
+        contents: [
+          { text: `Extraia os dados da tabela deste texto de relatório logístico:\n\n${text}` }
+        ],
+        config: {
+          systemInstruction: `Você é um motor de extração de dados estruturados de relatórios logísticos.
+          
+          Sua tarefa é extrair os dados da tabela e retornar um array de objetos JSON.
+          
+          REGRAS CRÍTICAS DE EXTRAÇÃO (PREVENÇÃO DE EMBARALHAMENTO):
+          1. Cada linha da tabela de fretes deve ser um objeto no array.
+          2. NUNCA misture valores entre linhas. O valor de uma linha pertence SOMENTE àquele CTE. Preste muita atenção ao alinhamento.
+          3. Padronize as chaves do JSON. Use SEMPRE as seguintes chaves exatas:
+             - "cte": O número do documento (CTRC, CTe, Número).
+             - "freteEmpresa": O valor cobrado do cliente (Frete Empr., Valor frete, Normal).
+             - "freteMotorista": O valor pago ao motorista (Frete Mot., Vl Carreteiro Líquido).
+             - "peso": O peso da carga (Peso, Ton, Kg).
+             - "margem": A margem de lucro (Margem, %, Result., Resultado).
+          4. Preserve os valores originais como strings (ex: "15.226,07", "39.540", "0,00").
+          5. Se um valor estiver em branco ou não existir na linha, use "0,00" para valores financeiros e "0" para peso.
+          6. BUSCA DE RODAPÉ: Procure pelo campo "Result." ou "Resultado" no final do documento (geralmente na última página). Se encontrar um valor total lá (ex: "18.483,22"), inclua um objeto especial no final do array com a chave "isFooter": true e "valorTotal": "valor_encontrado".
+          7. Retorne APENAS o array JSON válido, sem formatação markdown ou explicações.`,
+          responseMimeType: "application/json"
         }
-        return [];
+      });
+      
+      const responseText = response.text;
+      console.log("Processamento concluído (tamanho):", responseText?.length || 0);
+      if (!responseText) return [];
+      
+      try {
+        const parsed = JSON.parse(responseText);
+        console.log("Dados processados com sucesso. Itens:", parsed.length);
+        return parsed;
+      } catch (parseError) {
+        console.warn("Dados malformados detectados, tentando reparar...");
+        const repaired = repairJson(responseText);
+        try {
+          const parsedRepaired = JSON.parse(repaired);
+          console.log("Dados reparados com sucesso. Itens:", parsedRepaired.length);
+          return parsedRepaired;
+        } catch (repairError) {
+          console.error("Falha crítica ao processar dados:", responseText);
+          // Fallback: extração via regex de objetos individuais
+          const objects = responseText.match(/\{[^{}]+\}/g);
+          if (objects) {
+            console.log("Tentando extração via Regex. Objetos encontrados:", objects.length);
+            const results = [];
+            for (const objStr of objects) {
+              try {
+                results.push(JSON.parse(objStr));
+              } catch (e) {}
+            }
+            return results;
+          }
+          return [];
+        }
       }
+    } catch (error: any) {
+      if (retries > 0 && (error.message?.includes("429") || error.message?.includes("quota") || error.message?.includes("fetch"))) {
+        console.warn(`Tentativa falhou, tentando novamente em 2s... Restantes: ${retries}`);
+        retries--;
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+      
+      console.error("Erro no processamento:", error);
+      if (error.message?.includes("safety")) {
+        throw new Error("O conteúdo do PDF foi bloqueado pelos filtros de segurança do sistema.");
+      }
+      throw error;
     }
-  } catch (error: any) {
-    console.error("Erro no processamento:", error);
-    if (error.message?.includes("safety")) {
-      throw new Error("O conteúdo do PDF foi bloqueado pelos filtros de segurança do sistema.");
-    }
-    throw error;
   }
 };
 
 export const getAuditSupport = async (messages: any[], summary: any, simplifiedResults: any[]) => {
-  try {
-    const engine = getProcessingClient();
-    const systemInstruction = `Você é um Especialista em Auditoria Logística focado em reconciliação de fretes.
+  let retries = 1;
+  while (retries >= 0) {
+    try {
+      const engine = getProcessingClient();
+      const systemInstruction = `Você é um Especialista em Auditoria Logística focado em reconciliação de fretes.
 
-    FONTES DE DADOS (NÃO INVERTA):
-    - Fonte A (Relatório DL): Baseado no arquivo "atua go.pdf". É o relatório principal.
-    - Fonte B (Relatório Carreteiro): Baseado no arquivo "gw go.pdf". É o relatório de conferência.
+      FONTES DE DADOS (NÃO INVERTA):
+      - Fonte A (Relatório DL): Baseado no arquivo "atua go.pdf". É o relatório principal.
+      - Fonte B (Relatório Carreteiro): Baseado no arquivo "gw go.pdf". É o relatório de conferência.
 
-    DADOS DA AUDITORIA ATUAL:
-    - Resumo: ${JSON.stringify(summary)}
-    - Amostra de Dados: ${JSON.stringify(simplifiedResults)}
+      DADOS DA AUDITORIA ATUAL:
+      - Resumo: ${JSON.stringify(summary)}
+      - Amostra de Dados: ${JSON.stringify(simplifiedResults)}
 
-    REGRAS DE PROCESSAMENTO OBRIGATÓRIAS:
-    1. Normalização de Números (Chave Única): Você deve ignorar os "zeros à esquerda" nos números de CTE. Trate "000197" e "197" como o mesmo documento para evitar falsas divergências.
-    2. Identificação de Faltantes: Compare a lista de CTEs da Fonte A com a Fonte B. Se um número constar em A mas não em B, marque como "FALTANTE NO CARRETEIRO". (Exemplo real: O CTE 198 está no DL, mas não no Carreteiro).
-    3. Validação Financeira: Para os CTEs presentes em ambos, cruze os campos:
-       - Valor do Frete: Deve bater entre "Frete Empr." (DL) e "Valor frete" (Carreteiro).
-       - Peso: Deve ser o mesmo (ignore se a formatação for 39.540 ou 39,54).
-       - Valor Líquido: Compare "Frete Mot." (DL) com "Vl Carreteiro Líquido" (Carreteiro).
-    4. Correção de Inversão (CRÍTICO): 
-       - O CTE 198 (R$ 4.339,20) pertence EXCLUSIVAMENTE à Fonte A (Relatório DL). Ele NÃO EXISTE na Fonte B.
-       - O CTE 200 tem Frete Motorista de R$ 0,00 na Fonte A (Relatório DL) e R$ 15.226,07 na Fonte B (Relatório Carreteiro). NUNCA INVERTA ESSES VALORES.
-       - O CTE 197 tem Frete Motorista de R$ 13.961,18 em AMBAS as fontes.
+      REGRAS DE PROCESSAMENTO OBRIGATÓRIAS:
+      1. Normalização de Números (Chave Única): Você deve ignorar os "zeros à esquerda" nos números de CTE. Trate "000197" e "197" como o mesmo documento para evitar falsas divergências.
+      2. Identificação de Faltantes: Compare a lista de CTEs da Fonte A com a Fonte B. Se um número constar em A mas não em B, marque como "FALTANTE NO CARRETEIRO". (Exemplo real: O CTE 198 está no DL, mas não no Carreteiro).
+      3. Validação Financeira: Para os CTEs presentes em ambos, cruze os campos:
+         - Valor do Frete: Deve bater entre "Frete Empr." (DL) e "Valor frete" (Carreteiro).
+         - Peso: Deve ser o mesmo (ignore se a formatação for 39.540 ou 39,54).
+         - Valor Líquido: Compare "Frete Mot." (DL) com "Vl Carreteiro Líquido" (Carreteiro).
+      4. Correção de Inversão (CRÍTICO): 
+         - O CTE 198 (R$ 4.339,20) pertence EXCLUSIVAMENTE à Fonte A (Relatório DL). Ele NÃO EXISTE na Fonte B.
+         - O CTE 200 tem Frete Motorista de R$ 0,00 na Fonte A (Relatório DL) e R$ 15.226,07 na Fonte B (Relatório Carreteiro). NUNCA INVERTA ESSES VALORES.
+         - O CTE 197 tem Frete Motorista de R$ 13.961,18 em AMBAS as fontes.
 
-    SAÍDA ESPERADA:
-    - Gere uma tabela com as colunas: 
-      | CTE | Status | Valor Empresa (DL) | Valor Empresa (Carreteiro) | Divergência/Observação |
-      | :--- | :--- | :--- | :--- | :--- |
-    - Detalhes técnicos OBRIGATÓRIOS para a resposta:
-      * CTE 197: Status CONCILIADO. Valor DL: R$ 13.443,60. Valor Carreteiro: R$ 13.443,60. (Pesos 39,54 e 39.540 normalizados com sucesso).
-      * CTE 198: Status FALTANTE NO CARRETEIRO. Valor DL: R$ 4.339,20. Valor Carreteiro: -.
-      * CTE 200: Status ERRO DE VALOR. Valor DL: R$ 14.661,60. Valor Carreteiro: R$ 14.661,60. Observação: Frete Motorista divergente (DL = R$ 0,00 | Carreteiro = R$ 15.226,07).
-      * Contagem de Documentos: O sistema deve acusar que o Relatório DL tem 3 documentos e o Carreteiro tem apenas 2.
-      * Resumo Executivo: Total de CTEs analisados: 3. Documentos faltantes: 1. Divergências de valor: 1. Valor em Risco: R$ 19.565,27. Margem Total (A): R$ 18.483,22.`;
+      SAÍDA ESPERADA:
+      - Gere uma tabela com as colunas: 
+        | CTE | Status | Valor Empresa (DL) | Valor Empresa (Carreteiro) | Divergência/Observação |
+        | :--- | :--- | :--- | :--- | :--- |
+      - Detalhes técnicos OBRIGATÓRIOS para a resposta:
+        * CTE 197: Status CONCILIADO. Valor DL: R$ 13.443,60. Valor Carreteiro: R$ 13.443,60. (Pesos 39,54 e 39.540 normalizados com sucesso).
+        * CTE 198: Status FALTANTE NO CARRETEIRO. Valor DL: R$ 4.339,20. Valor Carreteiro: -.
+        * CTE 200: Status ERRO DE VALOR. Valor DL: R$ 14.661,60. Valor Carreteiro: R$ 14.661,60. Observação: Frete Motorista divergente (DL = R$ 0,00 | Carreteiro = R$ 15.226,07).
+        * Contagem de Documentos: O sistema deve acusar que o Relatório DL tem 3 documentos e o Carreteiro tem apenas 2.
+        * Resumo Executivo: Total de CTEs analisados: 3. Documentos faltantes: 1. Divergências de valor: 1. Valor em Risco: R$ 19.565,27. Margem Total (A): R$ 18.483,22.`;
 
-    const response = await engine.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: messages,
-      config: {
-        systemInstruction: systemInstruction,
+      const response = await engine.models.generateContent({
+        model: 'gemini-3.1-flash-lite-preview',
+        contents: messages,
+        config: {
+          systemInstruction: systemInstruction,
+        }
+      });
+
+      return response.text;
+    } catch (error) {
+      if (retries === 0) {
+        console.error("Erro no suporte após tentativas:", error);
+        throw error;
       }
-    });
-
-    return response.text;
-  } catch (error) {
-    console.error("Erro no suporte:", error);
-    throw error;
+      retries--;
+      await new Promise(r => setTimeout(r, 1000));
+    }
   }
 };
