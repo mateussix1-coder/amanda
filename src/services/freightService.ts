@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CTEData, ColumnMapping, AuditResult, AuditSummary } from '../types';
 import * as pdfjsLib from 'pdfjs-dist';
-import { parsePDFText } from './geminiService';
+import { parsePDFText } from './extractionService';
 // @ts-ignore - Vite import
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
@@ -101,11 +101,11 @@ export const parseFile = async (file: File): Promise<{ data: any[], footerTotal?
         resolve({ data: allData, footerTotal });
     } catch (error: any) {
       console.error("Erro ao processar PDF:", error);
-      let userMsg = "Falha ao extrair dados do PDF usando IA.";
+      let userMsg = "Falha ao extrair dados do arquivo.";
       if (error.message?.includes("429") || error.message?.includes("quota")) {
-        userMsg = "Limite de uso da IA atingido (Cota Grátis). Por favor, aguarde 1 minuto e tente novamente ou use um arquivo menor.";
+        userMsg = "Limite de processamento atingido. Por favor, aguarde 1 minuto e tente novamente ou use um arquivo menor.";
       } else if (error.message?.includes("safety")) {
-        userMsg = "O conteúdo do PDF foi bloqueado pelos filtros de segurança da IA.";
+        userMsg = "O conteúdo do arquivo foi bloqueado pelos filtros de segurança do sistema.";
       }
       reject(new Error(`${userMsg} Detalhes: ${error.message || 'Erro desconhecido'}`));
     }
@@ -379,7 +379,7 @@ export const shareToWhatsApp = (results: AuditResult[], summary: AuditSummary) =
     text += `✅ Nenhuma divergência encontrada. Tudo conciliado!\n`;
   }
 
-  text += `\nGerado por Amanda Gestão`;
+  text += `\nGerado por Amanda Gestão - Desenvolvido por Mateus`;
 
   const encodedText = encodeURIComponent(text);
   window.open(`https://wa.me/?text=${encodedText}`, '_blank');

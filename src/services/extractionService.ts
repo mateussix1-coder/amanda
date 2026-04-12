@@ -1,23 +1,23 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialize Gemini API lazily to prevent crashes if API key is missing
-let aiClient: GoogleGenAI | null = null;
+// Initialize processing engine lazily
+let processingClient: GoogleGenAI | null = null;
 
-const getAiClient = () => {
-  if (!aiClient) {
+const getProcessingClient = () => {
+  if (!processingClient) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.warn("GEMINI_API_KEY is not defined. AI features will not work.");
+      console.warn("Configuration missing. Data extraction will not work.");
     }
-    aiClient = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
+    processingClient = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
   }
-  return aiClient;
+  return processingClient;
 };
 
 export const autoMapColumns = async (columns: string[]) => {
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const engine = getProcessingClient();
+    const response = await engine.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
         { text: `Mapeie as colunas fornecidas para as chaves do sistema.
@@ -31,14 +31,14 @@ export const autoMapColumns = async (columns: string[]) => {
         - margem: Procure por "Margem", "%", "Result.", "Resultado"` }
       ],
       config: { 
-        systemInstruction: "Você é um assistente de mapeamento de dados logísticos. Retorne APENAS um JSON válido com as chaves exatas: cte, freteEmpresa, freteMotorista, margem, peso. Os valores devem ser os nomes EXATOS das colunas fornecidas na lista. Se não encontrar uma coluna correspondente, use uma string vazia ''.",
+        systemInstruction: "Você é um motor de mapeamento de dados logísticos. Retorne APENAS um JSON válido com as chaves exatas: cte, freteEmpresa, freteMotorista, margem, peso. Os valores devem ser os nomes EXATOS das colunas fornecidas na lista. Se não encontrar uma coluna correspondente, use uma string vazia ''.",
         responseMimeType: "application/json"
       }
     });
 
     return JSON.parse(response.text || '{}');
   } catch (error) {
-    console.error("Erro no automap:", error);
+    console.error("Erro no mapeamento:", error);
     throw error;
   }
 };
@@ -102,17 +102,17 @@ export const parsePDFText = async (text: string) => {
     return [];
   }
 
-  console.log("Enviando texto para IA (tamanho):", text.length);
+  console.log("Processando texto (tamanho):", text.length);
 
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const engine = getProcessingClient();
+    const response = await engine.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
         { text: `Extraia os dados da tabela deste texto de relatório logístico:\n\n${text}` }
       ],
       config: {
-        systemInstruction: `Você é um especialista em extração de dados estruturados de relatórios logísticos (PDFs convertidos em texto).
+        systemInstruction: `Você é um motor de extração de dados estruturados de relatórios logísticos.
         
         Sua tarefa é extrair os dados da tabela e retornar um array de objetos JSON.
         
@@ -134,22 +134,22 @@ export const parsePDFText = async (text: string) => {
     });
     
     const responseText = response.text;
-    console.log("Resposta da IA recebida (tamanho):", responseText?.length || 0);
+    console.log("Processamento concluído (tamanho):", responseText?.length || 0);
     if (!responseText) return [];
     
     try {
       const parsed = JSON.parse(responseText);
-      console.log("JSON parseado com sucesso. Itens:", parsed.length);
+      console.log("Dados processados com sucesso. Itens:", parsed.length);
       return parsed;
     } catch (parseError) {
-      console.warn("JSON malformado detectado, tentando reparar...");
+      console.warn("Dados malformados detectados, tentando reparar...");
       const repaired = repairJson(responseText);
       try {
         const parsedRepaired = JSON.parse(repaired);
-        console.log("JSON reparado com sucesso. Itens:", parsedRepaired.length);
+        console.log("Dados reparados com sucesso. Itens:", parsedRepaired.length);
         return parsedRepaired;
       } catch (repairError) {
-        console.error("Falha crítica ao reparar JSON:", responseText);
+        console.error("Falha crítica ao processar dados:", responseText);
         // Fallback: extração via regex de objetos individuais
         const objects = responseText.match(/\{[^{}]+\}/g);
         if (objects) {
@@ -166,17 +166,17 @@ export const parsePDFText = async (text: string) => {
       }
     }
   } catch (error: any) {
-    console.error("Erro no parse-pdf:", error);
+    console.error("Erro no processamento:", error);
     if (error.message?.includes("safety")) {
-      throw new Error("O conteúdo do PDF foi bloqueado pelos filtros de segurança da IA.");
+      throw new Error("O conteúdo do PDF foi bloqueado pelos filtros de segurança do sistema.");
     }
     throw error;
   }
 };
 
-export const chatWithAuditor = async (messages: any[], summary: any, simplifiedResults: any[]) => {
+export const getAuditSupport = async (messages: any[], summary: any, simplifiedResults: any[]) => {
   try {
-    const ai = getAiClient();
+    const engine = getProcessingClient();
     const systemInstruction = `Você é um Especialista em Auditoria Logística focado em reconciliação de fretes.
 
     FONTES DE DADOS (NÃO INVERTA):
@@ -210,7 +210,7 @@ export const chatWithAuditor = async (messages: any[], summary: any, simplifiedR
       * Contagem de Documentos: O sistema deve acusar que o Relatório DL tem 3 documentos e o Carreteiro tem apenas 2.
       * Resumo Executivo: Total de CTEs analisados: 3. Documentos faltantes: 1. Divergências de valor: 1. Valor em Risco: R$ 19.565,27. Margem Total (A): R$ 18.483,22.`;
 
-    const response = await ai.models.generateContent({
+    const response = await engine.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: messages,
       config: {
@@ -220,7 +220,7 @@ export const chatWithAuditor = async (messages: any[], summary: any, simplifiedR
 
     return response.text;
   } catch (error) {
-    console.error("Erro no chat:", error);
+    console.error("Erro no suporte:", error);
     throw error;
   }
 };

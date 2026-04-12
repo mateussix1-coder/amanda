@@ -2,24 +2,24 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Bot, User, Sparkles } from 'lucide-react';
+import { MessageSquare, User, Info, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AuditResult, AuditSummary } from '@/src/types';
-import { chatWithAuditor } from '../services/geminiService';
+import { getAuditSupport } from '../services/extractionService';
 
 interface Message {
   role: 'user' | 'model';
   content: string;
 }
 
-interface ChatAssistantProps {
+interface HelpCenterProps {
   results: AuditResult[];
   summary: AuditSummary;
 }
 
-export const ChatAssistant: React.FC<ChatAssistantProps> = ({ results, summary }) => {
+export const HelpCenter: React.FC<HelpCenterProps> = ({ results, summary }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', content: 'Olá! Sou seu assistente de IA. Carregue seus relatórios na aba "Auditoria" e me faça perguntas sobre os dados.' }
+    { role: 'model', content: 'Olá! Sou o suporte técnico do sistema. Carregue seus relatórios na aba "Auditoria" e me faça perguntas sobre os dados para que eu possa te ajudar na análise.' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +42,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ results, summary }
     setIsLoading(true);
 
     try {
-      // Preparar dados resumidos para a IA (removendo o 'raw' para economizar tokens)
+      // Preparar dados resumidos para o processamento (removendo o 'raw' para economizar recursos)
       const simplifiedResults = results.slice(0, 150).map(r => ({
         cte: r.cte,
         status: r.status,
@@ -66,10 +66,10 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ results, summary }
       }));
       contents.push({ role: 'user', parts: [{ text: userMsg }] });
 
-      const aiResponse = await chatWithAuditor(contents, summary, simplifiedResults);
-      setMessages(prev => [...prev, { role: 'model', content: aiResponse || 'Desculpe, não consegui gerar uma resposta.' }]);
+      const aiResponse = await getAuditSupport(contents, summary, simplifiedResults);
+      setMessages(prev => [...prev, { role: 'model', content: aiResponse || 'Desculpe, não consegui processar sua solicitação.' }]);
     } catch (error) {
-      console.error("Erro no chat:", error);
+      console.error("Erro no suporte:", error);
       setMessages(prev => [...prev, { role: 'model', content: 'Ocorreu um erro ao processar sua pergunta. Verifique se os arquivos não são muito grandes ou tente novamente.' }]);
     } finally {
       setIsLoading(false);
@@ -81,18 +81,18 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ results, summary }
       <CardHeader className="bg-indigo-50/50 border-b border-indigo-100 pb-4">
         <CardTitle className="flex items-center gap-2 font-heading text-lg text-indigo-900">
           <div className="p-2 bg-indigo-100 rounded-lg">
-            <Sparkles className="h-5 w-5 text-indigo-600" />
+            <MessageSquare className="h-5 w-5 text-indigo-600" />
           </div>
-          Assistente IA
+          Suporte Técnico
         </CardTitle>
-        <CardDescription>Faça perguntas sobre os relatórios carregados</CardDescription>
+        <CardDescription>Tire dúvidas sobre os relatórios carregados</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden bg-zinc-50/30">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((msg, i) => (
             <div key={i} className={cn("flex gap-3 max-w-[85%]", msg.role === 'user' ? "ml-auto flex-row-reverse" : "")}>
               <div className={cn("flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center shadow-sm", msg.role === 'user' ? "bg-indigo-600 text-white" : "bg-white border border-zinc-200 text-indigo-600")}>
-                {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                {msg.role === 'user' ? <User className="h-4 w-4" /> : <Info className="h-4 w-4" />}
               </div>
               <div className={cn("p-3 rounded-2xl text-sm shadow-sm", msg.role === 'user' ? "bg-indigo-600 text-white rounded-tr-none" : "bg-white border border-zinc-100 text-zinc-800 rounded-tl-none")}>
                 {msg.content}
@@ -102,7 +102,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ results, summary }
           {isLoading && (
             <div className="flex gap-3 max-w-[80%]">
               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white border border-zinc-200 text-indigo-600 flex items-center justify-center shadow-sm">
-                <Bot className="h-4 w-4" />
+                <Info className="h-4 w-4" />
               </div>
               <div className="p-4 rounded-2xl text-sm bg-white border border-zinc-100 text-zinc-800 rounded-tl-none flex items-center gap-1.5 shadow-sm">
                 <div className="h-2 w-2 bg-indigo-400 rounded-full animate-bounce" />

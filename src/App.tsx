@@ -4,15 +4,15 @@ import { KPISection } from './components/KPISection';
 import { AuditTable } from './components/AuditTable';
 import { ColumnMapper } from './components/ColumnMapper';
 import { parseFile, mapData, performAudit, exportToExcel, exportToPDF, shareToWhatsApp, detectSequentialGaps, calculateSummary } from './services/freightService';
-import { autoMapColumns } from './services/geminiService';
+import { autoMapColumns } from './services/extractionService';
 import { DashboardCharts } from './components/DashboardCharts';
-import { ChatAssistant } from './components/ChatAssistant';
+import { HelpCenter } from './components/HelpCenter';
 import { CTEData, ColumnMapping, AuditResult, AuditSummary, SavedAudit } from './types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Download, Play, RefreshCcw, FileSpreadsheet, Sparkles, LogIn, LogOut, History, Save, User as UserIcon, Truck, MessageSquare, CheckCircle2, Loader2, FileText, Share2 } from 'lucide-react';
+import { Download, Play, RefreshCcw, FileSpreadsheet, LogIn, LogOut, History, Save, User as UserIcon, Truck, MessageSquare, CheckCircle2, Loader2, FileText, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { useFirebase } from './contexts/FirebaseContext';
@@ -145,7 +145,7 @@ export default function App() {
     }
   }, [columnsB]);
 
-  const handleAiAutoMap = async (system: 'A' | 'B') => {
+  const handleAutoMap = async (system: 'A' | 'B') => {
     const cols = system === 'A' ? columnsA : columnsB;
     if (cols.length === 0) return;
 
@@ -154,7 +154,7 @@ export default function App() {
       if (system === 'A') setMappingA(prev => ({ ...prev, ...mapping }));
       else setMappingB(prev => ({ ...prev, ...mapping }));
     } catch (error) {
-      console.error("Erro no AI Auto-Map:", error);
+      console.error("Erro no Mapeamento Automático:", error);
     }
   };
 
@@ -290,8 +290,8 @@ export default function App() {
             <TabsTrigger value="audit" className="flex items-center gap-2 rounded-md data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
               <FileSpreadsheet className="h-4 w-4" /> Auditoria
             </TabsTrigger>
-            <TabsTrigger value="ai-assistant" className="flex items-center gap-2 rounded-md data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
-              <MessageSquare className="h-4 w-4" /> Assistente IA
+            <TabsTrigger value="help-center" className="flex items-center gap-2 rounded-md data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
+              <MessageSquare className="h-4 w-4" /> Suporte Técnico
             </TabsTrigger>
           </TabsList>
 
@@ -356,7 +356,7 @@ export default function App() {
                         <span>Nenhum dado identificado no Sistema A.</span>
                       </div>
                       <p className="text-xs opacity-90">
-                        A IA não conseguiu extrair tabelas deste arquivo. Verifique se o PDF possui texto selecionável (não é apenas uma foto/scan) ou tente outro formato.
+                        O sistema não conseguiu extrair tabelas deste arquivo. Verifique se o PDF possui texto selecionável (não é apenas uma foto/scan) ou tente outro formato.
                       </p>
                     </div>
                   )}
@@ -364,8 +364,8 @@ export default function App() {
                     <div className="space-y-4 bg-zinc-50 p-4 rounded-lg border border-zinc-100">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-zinc-700">Mapeamento de Colunas</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleAiAutoMap('A')} className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
-                          <Sparkles className="mr-2 h-4 w-4" /> IA Auto-Map
+                        <Button variant="ghost" size="sm" onClick={() => handleAutoMap('A')} className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
+                          <RefreshCcw className="mr-2 h-4 w-4" /> Mapeamento Automático
                         </Button>
                       </div>
                       <ColumnMapper 
@@ -408,7 +408,7 @@ export default function App() {
                         <span>Nenhum dado identificado no Sistema B.</span>
                       </div>
                       <p className="text-xs opacity-90">
-                        A IA não conseguiu extrair tabelas deste arquivo. Verifique se o PDF possui texto selecionável (não é apenas uma foto/scan) ou tente outro formato.
+                        O sistema não conseguiu extrair tabelas deste arquivo. Verifique se o PDF possui texto selecionável (não é apenas uma foto/scan) ou tente outro formato.
                       </p>
                     </div>
                   )}
@@ -416,8 +416,8 @@ export default function App() {
                     <div className="space-y-4 bg-zinc-50 p-4 rounded-lg border border-zinc-100">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-zinc-700">Mapeamento de Colunas</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleAiAutoMap('B')} className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
-                          <Sparkles className="mr-2 h-4 w-4" /> IA Auto-Map
+                        <Button variant="ghost" size="sm" onClick={() => handleAutoMap('B')} className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
+                          <RefreshCcw className="mr-2 h-4 w-4" /> Mapeamento Automático
                         </Button>
                       </div>
                       <ColumnMapper 
@@ -498,15 +498,25 @@ export default function App() {
             </div>
           </TabsContent>
 
-          <TabsContent value="ai-assistant" className="space-y-6">
+          <TabsContent value="help-center" className="space-y-6">
             <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
-              <h2 className="text-xl font-semibold font-heading text-zinc-800">Assistente IA</h2>
-              <p className="text-sm text-zinc-500">Converse com a inteligência artificial para analisar os relatórios carregados.</p>
+              <h2 className="text-xl font-semibold font-heading text-zinc-800">Suporte Técnico</h2>
+              <p className="text-sm text-zinc-500">Tire dúvidas sobre os relatórios carregados para auxiliar na sua análise.</p>
             </div>
-            <ChatAssistant results={results} summary={summary} />
+            <HelpCenter results={results} summary={summary} />
           </TabsContent>
         </Tabs>
       </main>
+
+      <footer className="mx-auto max-w-7xl px-4 md:px-8 py-8 border-t border-zinc-200 mt-12">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-zinc-500">© {new Date().getFullYear()} Amanda Gestão Logística. Todos os direitos reservados.</p>
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <span>Desenvolvido por</span>
+            <span className="font-bold text-zinc-600">Mateus</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
