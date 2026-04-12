@@ -17,9 +17,9 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ results, summa
 
   const topDivergences = useMemo(() => {
     return results
-      .filter(r => r.status === 'BOTH_DIVERGENT')
+      .filter(r => r.status === 'BOTH_DIVERGENT' || r.status === 'A_ONLY')
       .map(r => {
-        const totalDiff = (r.divergencias.freteEmpresa || 0) + (r.divergencias.freteMotorista || 0) + (r.divergencias.margem || 0);
+        const totalDiff = r.status === 'A_ONLY' ? (r.sistemaA?.freteEmpresa || 0) : Math.abs(r.diferencaMotorista);
         return {
           cte: r.cte,
           diff: totalDiff

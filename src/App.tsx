@@ -192,6 +192,10 @@ export default function App() {
     }, 800);
   };
 
+  const handleUpdateResult = (updatedResult: AuditResult) => {
+    setResults(prev => prev.map(r => r.cte === updatedResult.cte ? updatedResult : r));
+  };
+
   const saveAudit = async () => {
     if (!user || results.length === 0) return;
     setIsSaving(true);
@@ -208,6 +212,17 @@ export default function App() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const resetAudit = () => {
+    setFileA(null);
+    setFileB(null);
+    setRawA([]);
+    setRawB([]);
+    setResults([]);
+    setErrorMessage(null);
+    setFooterTotalA(0);
+    setActiveTab("audit");
   };
 
   const summary: AuditSummary = useMemo(() => {
@@ -229,6 +244,36 @@ export default function App() {
               <h1 className="text-2xl font-bold tracking-tight text-zinc-900 font-heading">Amanda Gestão</h1>
               <p className="text-sm text-zinc-500 font-medium hidden sm:block">Auditoria de Transportes</p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {(fileA || fileB || results.length > 0) && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={resetAudit}
+                className="hidden sm:flex border-zinc-200 text-zinc-600 hover:bg-zinc-50 rounded-xl"
+              >
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Nova Auditoria
+              </Button>
+            )}
+            {user ? (
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex flex-col items-end">
+                  <span className="text-sm font-bold text-zinc-900">{user.displayName || user.email}</span>
+                  <span className="text-[10px] text-zinc-500 font-medium">Usuário Verificado</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={logout} className="rounded-full hover:bg-zinc-100">
+                  <LogOut className="h-5 w-5 text-zinc-600" />
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={login} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm">
+                <LogIn className="mr-2 h-4 w-4" />
+                Entrar
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -445,7 +490,7 @@ export default function App() {
                       </div>
                     </CardHeader>
                     <CardContent className="p-0">
-                      <AuditTable results={results} />
+                      <AuditTable results={results} onUpdateResult={handleUpdateResult} />
                     </CardContent>
                   </Card>
                 </div>

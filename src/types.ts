@@ -13,6 +13,7 @@ export interface AuditResult {
   sistemaA?: CTEData;
   sistemaB?: CTEData;
   diferencaMotorista: number;
+  fuzzyMatch?: boolean;
   divergencias: {
     freteEmpresa?: number;
     freteMotorista?: number;

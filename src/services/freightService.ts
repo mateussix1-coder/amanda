@@ -167,69 +167,98 @@ export const performAudit = (dataA: CTEData[], dataB: CTEData[]): AuditResult[] 
   
   const allCtes = new Set([...mapA.keys(), ...mapB.keys()]);
   const results: AuditResult[] = [];
+  const matchedB = new Set<string>();
 
+  // 1. Exact Match
   allCtes.forEach(cte => {
     const itemA = mapA.get(cte);
     const itemB = mapB.get(cte);
 
-    if (itemA && !itemB) {
+    if (itemA && itemB) {
+      matchedB.add(cte);
+      results.push(createAuditResult(cte, itemA, itemB));
+    }
+  });
+
+  // 2. Fuzzy Match (Value matching for items not exactly matched)
+  const remainingA = dataA.filter(a => !results.some(r => r.sistemaA?.cte === a.cte));
+  const remainingB = dataB.filter(b => !matchedB.has(b.cte));
+
+  remainingA.forEach(itemA => {
+    // Look for a B item with identical financial values
+    const fuzzyMatch = remainingB.find(itemB => 
+      !matchedB.has(itemB.cte) &&
+      Math.abs(itemA.freteEmpresa - itemB.freteEmpresa) < 0.01 &&
+      Math.abs(itemA.freteMotorista - itemB.freteMotorista) < 0.01
+    );
+
+    if (fuzzyMatch) {
+      matchedB.add(fuzzyMatch.cte);
+      const result = createAuditResult(itemA.cte, itemA, fuzzyMatch);
+      result.fuzzyMatch = true;
+      results.push(result);
+    } else {
       results.push({
-        cte,
+        cte: itemA.cte,
         status: 'A_ONLY',
         sistemaA: itemA,
         diferencaMotorista: 0,
         divergencias: {}
       });
-    } else if (!itemA && itemB) {
+    }
+  });
+
+  // 3. Remaining B items
+  remainingB.forEach(itemB => {
+    if (!matchedB.has(itemB.cte)) {
       results.push({
-        cte,
+        cte: itemB.cte,
         status: 'B_ONLY',
         sistemaB: itemB,
         diferencaMotorista: 0,
         divergencias: {}
       });
-    } else if (itemA && itemB) {
-      let pesoA = itemA.peso;
-      let pesoB = itemB.peso;
-
-      // Normalização de Peso (Ton vs Kg)
-      // Se um valor estiver na casa dos milhares (Kg) e o outro em dezenas (Ton), normaliza para Ton
-      if (pesoA > 0 && pesoB > 0) {
-        if (pesoA >= pesoB * 100) pesoA = pesoA / 1000;
-        if (pesoB >= pesoA * 100) pesoB = pesoB / 1000;
-      }
-
-      const diffEmpresa = Math.abs(itemA.freteEmpresa - itemB.freteEmpresa);
-      const diffMotorista = Math.abs(itemA.freteMotorista - itemB.freteMotorista);
-      const diffMargem = Math.abs(itemA.margem - itemB.margem);
-      const diffPeso = Math.abs(pesoA - pesoB);
-
-      // Arredonda para 2 casas decimais para evitar problemas de precisão de ponto flutuante
-      const diffEmpresaRounded = Math.round(diffEmpresa * 100) / 100;
-      const diffMotoristaRounded = Math.round(diffMotorista * 100) / 100;
-      const diffMargemRounded = Math.round(diffMargem * 100) / 100;
-      const diffPesoRounded = Math.round(diffPeso * 100) / 100;
-
-      // Status é divergente apenas se houver diferença financeira real (Empresa ou Motorista)
-      const isDivergent = diffEmpresaRounded > 0.00 || diffMotoristaRounded > 0.00;
-
-      results.push({
-        cte,
-        status: isDivergent ? 'BOTH_DIVERGENT' : 'BOTH_MATCH',
-        sistemaA: itemA,
-        sistemaB: itemB,
-        diferencaMotorista: itemA.freteMotorista - itemB.freteMotorista,
-        divergencias: {
-          freteEmpresa: diffEmpresaRounded > 0.00 ? diffEmpresaRounded : undefined,
-          freteMotorista: diffMotoristaRounded > 0.00 ? diffMotoristaRounded : undefined,
-          margem: diffMargemRounded > 0.00 ? diffMargemRounded : undefined,
-          peso: diffPesoRounded > 0.00 ? diffPesoRounded : undefined,
-        }
-      });
     }
   });
 
   return results;
+};
+
+const createAuditResult = (cte: string, itemA: CTEData, itemB: CTEData): AuditResult => {
+  let pesoA = itemA.peso;
+  let pesoB = itemB.peso;
+
+  // Normalização de Peso (Ton vs Kg)
+  if (pesoA > 0 && pesoB > 0) {
+    if (pesoA >= pesoB * 100) pesoA = pesoA / 1000;
+    if (pesoB >= pesoA * 100) pesoB = pesoB / 1000;
+  }
+
+  const diffEmpresa = Math.abs(itemA.freteEmpresa - itemB.freteEmpresa);
+  const diffMotorista = Math.abs(itemA.freteMotorista - itemB.freteMotorista);
+  const diffMargem = Math.abs(itemA.margem - itemB.margem);
+  const diffPeso = Math.abs(pesoA - pesoB);
+
+  const diffEmpresaRounded = Math.round(diffEmpresa * 100) / 100;
+  const diffMotoristaRounded = Math.round(diffMotorista * 100) / 100;
+  const diffMargemRounded = Math.round(diffMargem * 100) / 100;
+  const diffPesoRounded = Math.round(diffPeso * 100) / 100;
+
+  const isDivergent = diffEmpresaRounded > 0.00 || diffMotoristaRounded > 0.00;
+
+  return {
+    cte,
+    status: isDivergent ? 'BOTH_DIVERGENT' : 'BOTH_MATCH',
+    sistemaA: itemA,
+    sistemaB: itemB,
+    diferencaMotorista: itemA.freteMotorista - itemB.freteMotorista,
+    divergencias: {
+      freteEmpresa: diffEmpresaRounded > 0.00 ? diffEmpresaRounded : undefined,
+      freteMotorista: diffMotoristaRounded > 0.00 ? diffMotoristaRounded : undefined,
+      margem: diffMargemRounded > 0.00 ? diffMargemRounded : undefined,
+      peso: diffPesoRounded > 0.00 ? diffPesoRounded : undefined,
+    }
+  };
 };
 
 export const detectSequentialGaps = (ctes: string[]): string[] => {
