@@ -7,12 +7,13 @@ import { parseFile, mapData, performAudit, exportToExcel, exportToPDF, shareToWh
 import { autoMapColumns } from './services/extractionService';
 import { DashboardCharts } from './components/DashboardCharts';
 import { HelpCenter } from './components/HelpCenter';
+import { Changelog } from './components/Changelog';
 import { CTEData, ColumnMapping, AuditResult, AuditSummary, SavedAudit } from './types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Download, Play, RefreshCcw, FileSpreadsheet, LogIn, LogOut, History, Save, User as UserIcon, Truck, MessageSquare, CheckCircle2, Loader2, FileText, Share2 } from 'lucide-react';
+import { Download, Play, RefreshCcw, FileSpreadsheet, LogIn, LogOut, History, Save, User as UserIcon, Truck, MessageSquare, CheckCircle2, Loader2, FileText, Share2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { useFirebase } from './contexts/FirebaseContext';
@@ -309,6 +310,9 @@ export default function App() {
             <TabsTrigger value="help-center" className="flex items-center gap-2 rounded-md data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
               <MessageSquare className="h-4 w-4" /> Suporte Técnico
             </TabsTrigger>
+            <TabsTrigger value="changelog" className="flex items-center gap-2 rounded-md data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
+              <Sparkles className="h-4 w-4" /> Novidades
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="audit" className="space-y-8">
@@ -534,6 +538,10 @@ export default function App() {
               <p className="text-sm text-zinc-500">Tire dúvidas sobre os relatórios carregados para auxiliar na sua análise.</p>
             </div>
             <HelpCenter results={results} summary={summary} />
+          </TabsContent>
+
+          <TabsContent value="changelog" className="space-y-6">
+            <Changelog />
           </TabsContent>
         </Tabs>
       </main>
