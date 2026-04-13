@@ -178,7 +178,9 @@ export const AuditTable: React.FC<AuditTableProps> = ({ results, onUpdateResult 
                     result.status === 'BOTH_DIVERGENT' && "bg-rose-50/50 hover:bg-rose-50",
                     (result.status === 'A_ONLY' || result.status === 'B_ONLY') && "bg-amber-50/50 hover:bg-amber-50",
                     result.status === 'BOTH_MATCH' && "bg-emerald-50/20 hover:bg-emerald-50/40",
-                    isEditing && "bg-indigo-50/50 ring-1 ring-indigo-200"
+                    isEditing && "bg-indigo-50/50 ring-1 ring-indigo-200",
+                    // Divergência Crítica: Motorista (A) zerado e Motorista (B) com valor
+                    result.sistemaA?.freteMotorista === 0 && (result.sistemaB?.freteMotorista || 0) > 0 && "bg-red-100 hover:bg-red-200"
                   )}
                 >
                   <TableCell className="font-medium">
@@ -192,7 +194,11 @@ export const AuditTable: React.FC<AuditTableProps> = ({ results, onUpdateResult 
                   <TableCell>
                     {result.status === 'A_ONLY' && <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">Apenas A</Badge>}
                     {result.status === 'B_ONLY' && <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">Apenas B</Badge>}
-                    {result.status === 'BOTH_DIVERGENT' && <Badge variant="destructive">Divergente</Badge>}
+                    {result.status === 'BOTH_DIVERGENT' && (
+                      <Badge variant="destructive" className={cn(result.sistemaA?.freteMotorista === 0 && (result.sistemaB?.freteMotorista || 0) > 0 && "animate-pulse")}>
+                        {result.sistemaA?.freteMotorista === 0 && (result.sistemaB?.freteMotorista || 0) > 0 ? "Divergência Crítica" : "Divergente"}
+                      </Badge>
+                    )}
                     {result.status === 'BOTH_MATCH' && <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Conciliado</Badge>}
                   </TableCell>
                   
