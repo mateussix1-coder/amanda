@@ -121,8 +121,8 @@ export default function App() {
       columnsA.forEach(col => {
         const lower = col.toLowerCase();
         if (lower === 'ctrc' || lower === 'cte' || lower.includes('numero') || lower.includes('documento')) mapping.cte = col;
-        if (lower === 'frete empr.' || lower.includes('frete empr') || lower.includes('empresa')) mapping.freteEmpresa = col;
-        if (lower === 'frete mot.' || lower.includes('frete mot') || lower.includes('motorista')) mapping.freteMotorista = col;
+        if (lower === 'frete empr.' || lower === 'frete empr') mapping.freteEmpresa = col;
+        if (lower === 'frete mot.' || lower === 'frete mot') mapping.freteMotorista = col;
         if (lower.includes('margem') || lower === '%' || lower.includes('result')) mapping.margem = col;
         if (lower.includes('peso') || lower.includes('ton') || lower.includes('kg')) mapping.peso = col;
       });
@@ -136,8 +136,8 @@ export default function App() {
       columnsB.forEach(col => {
         const lower = col.toLowerCase();
         if (lower === 'cte' || lower === 'ctrc' || lower.includes('numero') || lower.includes('documento')) mapping.cte = col;
-        if (lower === 'valor frete' || lower.includes('valor frete') || lower.includes('empresa')) mapping.freteEmpresa = col;
-        if (lower === 'vl carreteiro líquido' || lower.includes('carreteiro líq') || lower.includes('motorista')) mapping.freteMotorista = col;
+        if (lower === 'valor frete') mapping.freteEmpresa = col;
+        if (lower === 'vl carreteiro') mapping.freteMotorista = col;
         if (lower.includes('margem') || lower === '%' || lower.includes('result')) mapping.margem = col;
         if (lower.includes('peso') || lower.includes('ton') || lower.includes('kg')) mapping.peso = col;
       });

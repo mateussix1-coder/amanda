@@ -28,7 +28,7 @@ export const autoMapColumns = async (columns: string[]) => {
           DICAS DE MAPEAMENTO (Tente encontrar correspondências exatas ou parciais):
           - cte: Procure por "CTRC", "CTe", "Documento", "Número"
           - freteEmpresa: Procure por "Frete Empr.", "Valor frete", "Frete Empresa", "Normal"
-          - freteMotorista: Procure por "Frete Mot.", "Vl Carreteiro Líquido", "Frete Motorista"
+          - freteMotorista: Procure por "Frete Mot.", "Vl Carreteiro", "Frete Motorista"
           - peso: Procure por "Peso", "Ton", "Kg"
           - margem: Procure por "Margem", "%", "Result.", "Resultado"` }
         ],
@@ -139,7 +139,7 @@ export const parsePDFText = async (text: string) => {
           3. Padronize as chaves do JSON. Use SEMPRE as seguintes chaves exatas:
              - "cte": O número do documento (CTRC, CTe, Número).
              - "freteEmpresa": O valor cobrado do cliente (Frete Empr., Valor frete, Normal).
-             - "freteMotorista": O valor pago ao motorista (Frete Mot., Vl Carreteiro Líquido).
+             - "freteMotorista": O valor pago ao motorista (Frete Mot., Vl Carreteiro).
              - "peso": O peso da carga (Peso, Ton, Kg).
              - "margem": A margem de lucro (Margem, %, Result., Resultado).
           4. Preserve os valores originais como strings (ex: "15.226,07", "39.540", "0,00").
@@ -223,7 +223,7 @@ export const getAuditSupport = async (messages: any[], summary: any, simplifiedR
       3. Validação Financeira: Para os CTEs presentes em ambos, cruze os campos:
          - Valor do Frete: Deve bater entre "Frete Empr." (DL) e "Valor frete" (Carreteiro).
          - Peso: Deve ser o mesmo (ignore se a formatação for 39.540 ou 39,54).
-         - Valor Líquido: Compare "Frete Mot." (DL) com "Vl Carreteiro Líquido" (Carreteiro).
+         - Valor Líquido: Compare "Frete Mot." (DL) com "Vl Carreteiro" (Carreteiro).
       4. Correção de Inversão (CRÍTICO): 
          - O CTE 198 (R$ 4.339,20) pertence EXCLUSIVAMENTE à Fonte A (Relatório DL). Ele NÃO EXISTE na Fonte B.
          - O CTE 200 tem Frete Motorista de R$ 0,00 na Fonte A (Relatório DL) e R$ 15.226,07 na Fonte B (Relatório Carreteiro). NUNCA INVERTA ESSES VALORES.

@@ -311,9 +311,6 @@ export const exportToExcel = (results: AuditResult[]) => {
     'Frete Motorista (A)': r.sistemaA?.freteMotorista || 0,
     'Frete Motorista (B)': r.sistemaB?.freteMotorista || 0,
     'Diferença Motorista': r.divergencias.freteMotorista || 0,
-    'Margem (A)': r.sistemaA?.margem || 0,
-    'Margem (B)': r.sistemaB?.margem || 0,
-    'Diferença Margem': r.divergencias.margem || 0,
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);

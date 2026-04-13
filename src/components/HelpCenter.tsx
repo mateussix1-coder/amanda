@@ -52,12 +52,9 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ results, summary }) => {
         motoristaB: r.sistemaB?.freteMotorista,
         pesoA: r.sistemaA?.peso,
         pesoB: r.sistemaB?.peso,
-        margemA: r.sistemaA?.margem,
-        margemB: r.sistemaB?.margem,
         diffEmpresa: r.divergencias.freteEmpresa,
         diffMotorista: r.divergencias.freteMotorista,
         diffPeso: r.divergencias.peso,
-        diffMargem: r.divergencias.margem
       }));
 
       const contents = messages.map(m => ({
