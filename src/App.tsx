@@ -143,7 +143,7 @@ export default function App() {
         if (lower === 'número' || lower === 'numero' || lower === 'ct' || lower.includes('documento')) mapping.cte = col;
         if (lower === 'frete empr.' || lower === 'frete empr') mapping.freteEmpresa = col;
         if (lower === 'frete mot.' || lower === 'frete mot') mapping.freteMotorista = col;
-        if (lower.includes('result') || lower.includes('margem')) mapping.margem = col;
+        if (lower.includes('result') || lower.includes('margem') || lower === '%' || lower.includes('(%)')) mapping.margem = col;
         if (lower.includes('peso (ton)') || lower.includes('peso ton') || lower.includes('peso')) mapping.peso = col;
       });
       setMappingA(mapping);
@@ -159,7 +159,7 @@ export default function App() {
         if (lower === 'cte/nfs' || lower === 'cte' || lower.includes('numero')) mapping.cte = col;
         if (lower === 'valor frete') mapping.freteEmpresa = col;
         if (lower === 'vl carreteiro' || lower === 'vl carreteiro líquido' || lower === 'vl carreteiro liquido') mapping.freteMotorista = col;
-        if (lower.includes('result') || lower.includes('margem')) mapping.margem = col;
+        if (lower.includes('result') || lower.includes('margem') || lower === '%' || lower.includes('(%)')) mapping.margem = col;
         if (lower.includes('peso / kg') || lower.includes('peso kg') || lower.includes('peso')) mapping.peso = col;
       });
       setMappingB(mapping);

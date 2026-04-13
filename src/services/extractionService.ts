@@ -30,7 +30,7 @@ export const autoMapColumns = async (columns: string[]) => {
           - freteEmpresa: Procure por "Frete Empr.", "Valor frete", "Normal"
           - freteMotorista: Procure por "Frete Mot.", "Vl Carreteiro", "Vl Carreteiro Líquido"
           - peso: Procure por "Peso (Ton)", "Peso / Kg", "Peso"
-          - margem: Procure por "Result.", "Resultado", "Margem"` }
+          - margem: Procure por "(%)", "%", "Result.", "Resultado", "Margem"` }
         ],
         config: { 
           systemInstruction: "Você é um motor de mapeamento de dados logísticos. Retorne APENAS um JSON válido com as chaves exatas: cte, freteEmpresa, freteMotorista, margem, peso. Os valores devem ser os nomes EXATOS das colunas fornecidas na lista. Se não encontrar uma coluna correspondente, use uma string vazia ''.",
@@ -141,7 +141,7 @@ export const parsePDFText = async (text: string) => {
              - "freteEmpresa": O valor cobrado do cliente (Frete Empr., Valor frete).
              - "freteMotorista": O valor pago ao motorista (Frete Mot., Vl Carreteiro, Vl Carreteiro Líquido).
              - "peso": O peso da carga (Peso (Ton), Peso / Kg).
-             - "margem": A margem de lucro ou resultado (Result., Resultado).
+             - "margem": A margem de lucro ou resultado. Dê preferência absoluta para colunas que contenham o símbolo "%" (ex: "(%)", "Margem %"). Se não houver %, use a coluna de resultado (Result., Líquido).
           4. Preserve os valores originais como strings (ex: "15.226,07", "39.540", "0,00").
           5. Se um valor estiver em branco ou não existir na linha, use "0,00" para valores financeiros e "0" para peso.
           6. BUSCA DE RODAPÉ: Procure pelo campo "Result." ou "Resultado" no final do documento (geralmente na última página). Se encontrar um valor total lá (ex: "18.483,22"), inclua um objeto especial no final do array com a chave "isFooter": true e "valorTotal": "valor_encontrado".
