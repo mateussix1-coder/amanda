@@ -39,7 +39,15 @@ export const autoMapColumns = async (columns: string[]) => {
       });
 
       return JSON.parse(response.text || '{}');
-    } catch (error) {
+    } catch (error: any) {
+      const errorStr = String(error);
+      const isUnavailable = errorStr.includes("503") || errorStr.includes("UNAVAILABLE") || errorStr.includes("high demand");
+
+      if (retries > 0 && (error.message?.includes("429") || error.message?.includes("quota") || isUnavailable)) {
+        retries--;
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
       if (retries === 0) {
         console.error("Erro no mapeamento após tentativas:", error);
         throw error;
@@ -175,10 +183,13 @@ export const parsePDFText = async (text: string) => {
         }
       }
     } catch (error: any) {
-      if (retries > 0 && (error.message?.includes("429") || error.message?.includes("quota") || error.message?.includes("fetch"))) {
-        console.warn(`Tentativa falhou, tentando novamente em 2s... Restantes: ${retries}`);
+      const errorStr = String(error);
+      const isUnavailable = errorStr.includes("503") || errorStr.includes("UNAVAILABLE") || errorStr.includes("high demand");
+
+      if (retries > 0 && (error.message?.includes("429") || error.message?.includes("quota") || error.message?.includes("fetch") || isUnavailable)) {
+        console.warn(`Tentativa falhou (${isUnavailable ? 'Servidor Ocupado' : 'Limite'}), tentando novamente em 3s... Restantes: ${retries}`);
         retries--;
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
         continue;
       }
       
@@ -238,7 +249,15 @@ export const getAuditSupport = async (messages: any[], summary: any, simplifiedR
       });
 
       return response.text;
-    } catch (error) {
+    } catch (error: any) {
+      const errorStr = String(error);
+      const isUnavailable = errorStr.includes("503") || errorStr.includes("UNAVAILABLE") || errorStr.includes("high demand");
+
+      if (retries > 0 && (error.message?.includes("429") || error.message?.includes("quota") || isUnavailable)) {
+        retries--;
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
       if (retries === 0) {
         console.error("Erro no suporte após tentativas:", error);
         throw error;
