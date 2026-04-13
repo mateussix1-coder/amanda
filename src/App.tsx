@@ -541,9 +541,12 @@ export default function App() {
       <footer className="mx-auto max-w-7xl px-4 md:px-8 py-8 border-t border-zinc-200 mt-12">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-zinc-500">© {new Date().getFullYear()} Amanda Gestão Logística. Todos os direitos reservados.</p>
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <span>Desenvolvido por</span>
-            <span className="font-bold text-zinc-600">Mateus</span>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <span>Desenvolvido por</span>
+              <span className="font-bold text-zinc-600">Mateus</span>
+            </div>
+            <span className="text-[10px] text-zinc-300">Atualizado em: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         </div>
       </footer>
