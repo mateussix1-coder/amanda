@@ -44,8 +44,10 @@ export const autoMapColumns = async (columns: string[]) => {
       const isUnavailable = errorStr.includes("503") || errorStr.includes("UNAVAILABLE") || errorStr.includes("high demand");
 
       if (retries > 0 && (error.message?.includes("429") || error.message?.includes("quota") || isUnavailable)) {
+        const waitTime = (2 - retries) * 3000 + Math.random() * 3000;
+        console.warn(`Mapeamento falhou (${isUnavailable ? 'Servidor Ocupado' : 'Limite'}), tentando novamente em ${Math.round(waitTime/1000)}s...`);
         retries--;
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, waitTime));
         continue;
       }
       if (retries === 0) {
@@ -187,9 +189,10 @@ export const parsePDFText = async (text: string) => {
       const isUnavailable = errorStr.includes("503") || errorStr.includes("UNAVAILABLE") || errorStr.includes("high demand");
 
       if (retries > 0 && (error.message?.includes("429") || error.message?.includes("quota") || error.message?.includes("fetch") || isUnavailable)) {
-        console.warn(`Tentativa falhou (${isUnavailable ? 'Servidor Ocupado' : 'Limite'}), tentando novamente em 3s... Restantes: ${retries}`);
+        const waitTime = (2 - retries) * 4000 + Math.random() * 4000;
+        console.warn(`Extração falhou (${isUnavailable ? 'Servidor Ocupado' : 'Limite'}), tentando novamente em ${Math.round(waitTime/1000)}s... Restantes: ${retries}`);
         retries--;
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, waitTime));
         continue;
       }
       
@@ -256,8 +259,10 @@ export const getAuditSupport = async (messages: any[], summary: any, simplifiedR
       const isUnavailable = errorStr.includes("503") || errorStr.includes("UNAVAILABLE") || errorStr.includes("high demand");
 
       if (retries > 0 && (error.message?.includes("429") || error.message?.includes("quota") || isUnavailable)) {
+        const waitTime = (1 - retries) * 3000 + Math.random() * 3000;
+        console.warn(`Suporte falhou (${isUnavailable ? 'Servidor Ocupado' : 'Limite'}), tentando novamente em ${Math.round(waitTime/1000)}s...`);
         retries--;
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, waitTime));
         continue;
       }
       if (retries === 0) {
