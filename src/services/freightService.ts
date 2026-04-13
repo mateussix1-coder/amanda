@@ -334,9 +334,10 @@ export const exportToPDF = (results: AuditResult[], summary: AuditSummary) => {
   doc.text(`Faltantes: ${summary.faltantes}`, 14, 44);
   doc.text(`Divergências: ${summary.divergencias}`, 14, 50);
   doc.text(`Diferença Motorista: R$ ${summary.valorTotalDivergencia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 56);
+  doc.text(`Diferença Empresa: R$ ${(summary.totalEmpresaA - summary.totalEmpresaB).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 62);
   
   if (summary.lacunasSequenciais && summary.lacunasSequenciais.length > 0) {
-    doc.text(`Lacunas Sequenciais: ${summary.lacunasSequenciais.join(', ')}`, 14, 62);
+    doc.text(`Lacunas Sequenciais: ${summary.lacunasSequenciais.join(', ')}`, 14, 68);
   }
 
   // Tabela
@@ -371,7 +372,8 @@ export const shareToWhatsApp = (results: AuditResult[], summary: AuditSummary) =
   text += `📊 Total Analisados: ${summary.totalAnalizados}\n`;
   text += `⚠️ Faltantes: ${summary.faltantes}\n`;
   text += `❌ Divergências: ${summary.divergencias}\n`;
-  text += `💰 Diferença Motorista: ${formatCurrency(summary.valorTotalDivergencia)}\n\n`;
+  text += `💰 Diferença Motorista: ${formatCurrency(summary.valorTotalDivergencia)}\n`;
+  text += `🏢 Diferença Empresa: ${formatCurrency(summary.totalEmpresaA - summary.totalEmpresaB)}\n\n`;
 
   if (summary.lacunasSequenciais && summary.lacunasSequenciais.length > 0) {
     text += `🔍 *Lacunas Sequenciais:* ${summary.lacunasSequenciais.join(', ')}\n\n`;
@@ -405,7 +407,13 @@ export const calculateSummary = (results: AuditResult[], footerTotalA?: number):
   
   // Valor em Risco = (Total CTEs apenas em A) + (Diferença absoluta entre Motorista A e B nos divergentes)
   let valorTotalDivergencia = 0;
+  let totalEmpresaA = 0;
+  let totalEmpresaB = 0;
+
   results.forEach(r => {
+    if (r.sistemaA) totalEmpresaA += r.sistemaA.freteEmpresa;
+    if (r.sistemaB) totalEmpresaB += r.sistemaB.freteEmpresa;
+
     if (r.status === 'A_ONLY' && r.sistemaA) {
       valorTotalDivergencia += r.sistemaA.freteEmpresa;
     } else if (r.status === 'BOTH_DIVERGENT') {
@@ -421,6 +429,8 @@ export const calculateSummary = (results: AuditResult[], footerTotalA?: number):
     faltantes,
     divergencias,
     valorTotalDivergencia,
+    totalEmpresaA,
+    totalEmpresaB,
     margemTotal: footerTotalA || 0,
     lacunasSequenciais
   };

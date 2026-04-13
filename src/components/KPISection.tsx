@@ -55,14 +55,18 @@ export const KPISection: React.FC<KPISectionProps> = ({ summary }) => {
 
       <Card className="border-zinc-200 shadow-sm rounded-xl overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-zinc-50/50 border-b border-zinc-100">
-          <CardTitle className="text-sm font-medium font-heading text-zinc-700">Margem Total (A)</CardTitle>
+          <CardTitle className="text-sm font-medium font-heading text-zinc-700">Diferença Empresa</CardTitle>
           <div className="p-2 bg-emerald-100 rounded-lg">
             <TrendingUp className="h-4 w-4 text-emerald-600" />
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="text-3xl font-bold font-heading text-emerald-600">{formatCurrency(summary.margemTotal)}</div>
-          <p className="text-xs text-zinc-500 mt-1">Valor absoluto do rodapé (Result.)</p>
+          <div className="text-3xl font-bold font-heading text-emerald-600">
+            {formatCurrency(summary.totalEmpresaA - summary.totalEmpresaB)}
+          </div>
+          <p className="text-xs text-zinc-500 mt-1">
+            Margem Total (A): {formatCurrency(summary.margemTotal)}
+          </p>
         </CardContent>
       </Card>
 

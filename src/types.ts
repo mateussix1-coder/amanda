@@ -36,6 +36,8 @@ export interface AuditSummary {
   divergencias: number;
   valorTotalDivergencia: number; // Valor em Risco
   margemTotal: number; // Valor fixo do rodapé (Result.)
+  totalEmpresaA: number;
+  totalEmpresaB: number;
   lacunasSequenciais?: string[];
 }
 
