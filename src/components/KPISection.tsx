@@ -42,7 +42,7 @@ export const KPISection: React.FC<KPISectionProps> = ({ summary }) => {
 
       <Card className="border-zinc-200 shadow-sm rounded-xl overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-zinc-50/50 border-b border-zinc-100">
-          <CardTitle className="text-sm font-medium font-heading text-zinc-700">Valor em Risco</CardTitle>
+          <CardTitle className="text-sm font-medium font-heading text-zinc-700">Diferença Motorista</CardTitle>
           <div className="p-2 bg-amber-100 rounded-lg">
             <DollarSign className="h-4 w-4 text-amber-600" />
           </div>

@@ -45,6 +45,8 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isParsingA, setIsParsingA] = useState(false);
   const [isParsingB, setIsParsingB] = useState(false);
+  const [isMappingA, setIsMappingA] = useState(false);
+  const [isMappingB, setIsMappingB] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [history, setHistory] = useState<SavedAudit[]>([]);
   const [activeTab, setActiveTab] = useState("audit");
@@ -114,6 +116,25 @@ export default function App() {
     return unsubscribe;
   }, [user]);
 
+  const handleAutoMap = async (system: 'A' | 'B') => {
+    const cols = system === 'A' ? columnsA : columnsB;
+    if (cols.length === 0) return;
+
+    if (system === 'A') setIsMappingA(true);
+    else setIsMappingB(true);
+
+    try {
+      const mapping = await autoMapColumns(cols);
+      if (system === 'A') setMappingA(prev => ({ ...prev, ...mapping }));
+      else setMappingB(prev => ({ ...prev, ...mapping }));
+    } catch (error) {
+      console.error("Erro no Mapeamento Automático:", error);
+    } finally {
+      if (system === 'A') setIsMappingA(false);
+      else setIsMappingB(false);
+    }
+  };
+
   useEffect(() => {
     if (columnsA.length > 0) {
       const mapping = { ...DEFAULT_MAPPING };
@@ -126,6 +147,7 @@ export default function App() {
         if (lower.includes('peso (ton)') || lower.includes('peso ton') || lower.includes('peso')) mapping.peso = col;
       });
       setMappingA(mapping);
+      handleAutoMap('A');
     }
   }, [columnsA]);
 
@@ -141,21 +163,9 @@ export default function App() {
         if (lower.includes('peso / kg') || lower.includes('peso kg') || lower.includes('peso')) mapping.peso = col;
       });
       setMappingB(mapping);
+      handleAutoMap('B');
     }
   }, [columnsB]);
-
-  const handleAutoMap = async (system: 'A' | 'B') => {
-    const cols = system === 'A' ? columnsA : columnsB;
-    if (cols.length === 0) return;
-
-    try {
-      const mapping = await autoMapColumns(cols);
-      if (system === 'A') setMappingA(prev => ({ ...prev, ...mapping }));
-      else setMappingB(prev => ({ ...prev, ...mapping }));
-    } catch (error) {
-      console.error("Erro no Mapeamento Automático:", error);
-    }
-  };
 
   const handleAudit = () => {
     if (isParsingA || isParsingB) return;
@@ -370,8 +380,15 @@ export default function App() {
                     <div className="space-y-4 bg-zinc-50 p-4 rounded-lg border border-zinc-100">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-zinc-700">Mapeamento de Colunas</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleAutoMap('A')} className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
-                          <RefreshCcw className="mr-2 h-4 w-4" /> Mapeamento Automático
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleAutoMap('A')} 
+                          disabled={isMappingA}
+                          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                        >
+                          <RefreshCcw className={cn("mr-2 h-4 w-4", isMappingA && "animate-spin")} /> 
+                          {isMappingA ? "Mapeando..." : "Mapeamento Automático"}
                         </Button>
                       </div>
                       <ColumnMapper 
@@ -422,8 +439,15 @@ export default function App() {
                     <div className="space-y-4 bg-zinc-50 p-4 rounded-lg border border-zinc-100">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-zinc-700">Mapeamento de Colunas</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleAutoMap('B')} className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
-                          <RefreshCcw className="mr-2 h-4 w-4" /> Mapeamento Automático
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleAutoMap('B')} 
+                          disabled={isMappingB}
+                          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                        >
+                          <RefreshCcw className={cn("mr-2 h-4 w-4", isMappingB && "animate-spin")} /> 
+                          {isMappingB ? "Mapeando..." : "Mapeamento Automático"}
                         </Button>
                       </div>
                       <ColumnMapper 

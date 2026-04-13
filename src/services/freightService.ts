@@ -311,6 +311,7 @@ export const exportToExcel = (results: AuditResult[]) => {
     'Frete Motorista (A)': r.sistemaA?.freteMotorista || 0,
     'Frete Motorista (B)': r.sistemaB?.freteMotorista || 0,
     'Diferença Motorista': r.divergencias.freteMotorista || 0,
+    'Margem (B)': r.sistemaB?.margem || 0,
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -332,7 +333,7 @@ export const exportToPDF = (results: AuditResult[], summary: AuditSummary) => {
   doc.text(`Total Analisados: ${summary.totalAnalizados}`, 14, 38);
   doc.text(`Faltantes: ${summary.faltantes}`, 14, 44);
   doc.text(`Divergências: ${summary.divergencias}`, 14, 50);
-  doc.text(`Valor em Risco: R$ ${summary.valorTotalDivergencia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 56);
+  doc.text(`Diferença Motorista: R$ ${summary.valorTotalDivergencia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 56);
   
   if (summary.lacunasSequenciais && summary.lacunasSequenciais.length > 0) {
     doc.text(`Lacunas Sequenciais: ${summary.lacunasSequenciais.join(', ')}`, 14, 62);
@@ -345,12 +346,13 @@ export const exportToPDF = (results: AuditResult[], summary: AuditSummary) => {
     r.sistemaA?.freteEmpresa?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-',
     r.sistemaB?.freteEmpresa?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-',
     r.sistemaA?.freteMotorista?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-',
-    r.sistemaB?.freteMotorista?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'
+    r.sistemaB?.freteMotorista?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-',
+    r.sistemaB?.margem ? `${r.sistemaB.margem.toFixed(2)}%` : '-'
   ]);
 
   autoTable(doc, {
     startY: 70,
-    head: [['CTE', 'Status', 'Empresa (A)', 'Empresa (B)', 'Motorista (A)', 'Motorista (B)']],
+    head: [['CTE', 'Status', 'Empresa (A)', 'Empresa (B)', 'Motorista (A)', 'Motorista (B)', 'Margem (B)']],
     body: tableData,
     theme: 'grid',
     headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
@@ -369,7 +371,7 @@ export const shareToWhatsApp = (results: AuditResult[], summary: AuditSummary) =
   text += `📊 Total Analisados: ${summary.totalAnalizados}\n`;
   text += `⚠️ Faltantes: ${summary.faltantes}\n`;
   text += `❌ Divergências: ${summary.divergencias}\n`;
-  text += `💰 Valor em Risco: ${formatCurrency(summary.valorTotalDivergencia)}\n\n`;
+  text += `💰 Diferença Motorista: ${formatCurrency(summary.valorTotalDivergencia)}\n\n`;
 
   if (summary.lacunasSequenciais && summary.lacunasSequenciais.length > 0) {
     text += `🔍 *Lacunas Sequenciais:* ${summary.lacunasSequenciais.join(', ')}\n\n`;
