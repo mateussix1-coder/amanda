@@ -83,11 +83,16 @@ export const KPISection: React.FC<KPISectionProps> = ({ summary }) => {
           </CardHeader>
           <CardContent className="pt-4">
             <div className="flex flex-wrap gap-2">
-              {summary.lacunasSequenciais.map((gap, idx) => (
+              {summary.lacunasSequenciais.slice(0, 30).map((gap, idx) => (
                 <span key={idx} className="px-2 py-1 bg-white border border-amber-200 text-amber-700 text-xs font-bold rounded-md shadow-sm">
                   {gap}
                 </span>
               ))}
+              {summary.lacunasSequenciais.length > 30 && (
+                <span className="px-2 py-1 bg-amber-100 border border-amber-300 text-amber-800 text-xs font-bold rounded-md shadow-sm">
+                  + {summary.lacunasSequenciais.length - 30} lacunas...
+                </span>
+              )}
             </div>
           </CardContent>
         </Card>

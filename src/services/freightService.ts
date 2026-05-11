@@ -19,7 +19,7 @@ const extractPagesFromPDF = async (file: File): Promise<string[]> => {
     const pdf = await loadingTask.promise;
     const pages: string[] = [];
     
-    const numPages = Math.min(pdf.numPages, 30); // Aumentar limite para 30 páginas
+    const numPages = pdf.numPages; // Remove page limit
     
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
@@ -78,24 +78,24 @@ export const parseFile = async (file: File): Promise<{ data: any[], footerTotal?
         const allData: any[] = [];
         let footerTotal: number | undefined;
         
-        // Processar em chunks menores (5 páginas) e em lotes para evitar sobrecarga
-        const chunkSize = 5;
+        // Processar em chunks maiores (10 páginas) para reduzir a chance de esgotar o limite da API (RPM)
+        const chunkSize = 10;
         const allChunks = [];
         for (let i = 0; i < pages.length; i += chunkSize) {
           allChunks.push(pages.slice(i, i + chunkSize).join('\n'));
         }
 
         const chunksResults = [];
-        // Processar em lotes de 2 chunks por vez
-        const batchSize = 2;
+        // Processar em lotes de 1 chunk por vez (sequencial) para não estourar o limite de requisições por minuto do Gemini (15 RPM)
+        const batchSize = 1;
         for (let i = 0; i < allChunks.length; i += batchSize) {
           const batch = allChunks.slice(i, i + batchSize);
           const batchResults = await Promise.all(batch.map(chunk => parsePDFText(chunk)));
           chunksResults.push(...batchResults);
           
-          // Pequena pausa entre lotes se houver mais de um lote
+          // Pausa entre lotes para respeitar limite (15 RPM = 1 req a cada 4s)
           if (allChunks.length > batchSize && i + batchSize < allChunks.length) {
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 4500));
           }
         }
         
@@ -140,38 +140,66 @@ export const sanitizeValue = (val: any): number => {
   
   let str = String(val).trim();
   
-  // 1. Remover 'R$' e '%' (case insensitive)
-  str = str.replace(/R\$/gi, '').replace(/%/g, '');
+  // 1. Remover caracteres monetários e porcentagem (incluindo espaços invisíveis e NBSP)
+  str = str.replace(/R\$/gi, '').replace(/%/g, '').replace(/[\s\u00A0]/g, '');
   
-  // 2. Remover espaços em branco
-  str = str.replace(/\s/g, '');
+  // 2. Tratar negativo e formatos financeiros
+  let isNegative = false;
+  if (str.startsWith('-')) {
+    isNegative = true;
+    str = str.substring(1);
+  } else if (str.startsWith('(') && str.endsWith(')')) { 
+    isNegative = true;
+    str = str.substring(1, str.length - 1);
+  }
   
   // 3. Tratar separadores decimais e de milhar de forma inteligente
-  // Se houver tanto ponto quanto vírgula, o último é o decimal
   const lastComma = str.lastIndexOf(',');
   const lastDot = str.lastIndexOf('.');
   
   if (lastComma > lastDot) {
-    // Formato BR: 1.234,56
-    str = str.replace(/\./g, '').replace(',', '.');
+    if (lastDot !== -1) {
+      // Formato BR: 1.234,56
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      const parts = str.split(',');
+      if (parts.length > 2) { 
+        // 1,234,567 (milhar em virgula)
+        str = str.replace(/,/g, '');
+      } else {
+        str = str.replace(',', '.');
+      }
+    }
   } else if (lastDot > lastComma) {
-    // Formato US: 1,234.56
-    str = str.replace(/,/g, '');
-  } else if (lastComma !== -1) {
-    // Apenas vírgula: 1234,56
-    str = str.replace(',', '.');
+    if (lastComma !== -1) {
+      // Formato US: 1,234.56
+      str = str.replace(/,/g, '');
+    } else {
+      const parts = str.split('.');
+      if (parts.length > 2) {
+        // 1.234.567 (milhar em ponto)
+        str = str.replace(/\./g, '');
+      }
+    }
+  } else if (lastComma !== -1 && lastDot === -1) {
+    // Apenas vírgulas, tratar como decimal se tiver apenas uma
+    const parts = str.split(',');
+    if (parts.length > 2) {
+      str = str.replace(/,/g, '');
+    } else {
+      str = str.replace(',', '.');
+    }
   }
-  // Se apenas ponto ou nenhum, parseFloat já resolve
   
   // 4. Converter para float
   const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
+  return isNaN(num) ? 0 : (isNegative ? -num : num);
 };
 
 export const mapData = (rawRows: any[], mapping: ColumnMapping): CTEData[] => {
   return rawRows.map(row => ({
-    // Remove leading zeros and trim spaces for better matching (e.g., "000197" -> "197")
-    cte: String(row[mapping.cte] || '').trim().replace(/^0+/, ''),
+    // Remove extra spaces, zeroes on the left and uppercase to match properly
+    cte: String(row[mapping.cte] || '').replace(/\s+/g, ' ').trim().replace(/^0+(?!$)/, '').toUpperCase(),
     freteEmpresa: sanitizeValue(row[mapping.freteEmpresa]),
     freteMotorista: sanitizeValue(row[mapping.freteMotorista]),
     margem: sanitizeValue(row[mapping.margem]),
@@ -203,12 +231,15 @@ export const performAudit = (dataA: CTEData[], dataB: CTEData[]): AuditResult[] 
   const remainingA = dataA.filter(a => !results.some(r => r.sistemaA?.cte === a.cte));
   const remainingB = dataB.filter(b => !matchedB.has(b.cte));
 
+  // Função utilitária para contornar problemas de ponto flutuante na conciliação fuzzy
+  const isMatchValue = (v1: number, v2: number) => Number(Math.abs(v1 - v2).toFixed(2)) === 0;
+
   remainingA.forEach(itemA => {
     // Look for a B item with identical financial values
     const fuzzyMatch = remainingB.find(itemB => 
       !matchedB.has(itemB.cte) &&
-      Math.abs(itemA.freteEmpresa - itemB.freteEmpresa) < 0.01 &&
-      Math.abs(itemA.freteMotorista - itemB.freteMotorista) < 0.01
+      isMatchValue(itemA.freteEmpresa, itemB.freteEmpresa) &&
+      isMatchValue(itemA.freteMotorista, itemB.freteMotorista)
     );
 
     if (fuzzyMatch) {
@@ -252,35 +283,33 @@ const createAuditResult = (cte: string, itemA: CTEData, itemB: CTEData): AuditRe
   let pesoA = itemA.peso;
   let pesoB = itemB.peso;
 
-  // Normalização de Peso (Ton vs Kg)
+  // Normalização de Peso (Ton vs Kg) tolerante
   if (pesoA > 0 && pesoB > 0) {
-    if (pesoA >= pesoB * 100) pesoA = pesoA / 1000;
-    if (pesoB >= pesoA * 100) pesoB = pesoB / 1000;
+    if (pesoA >= pesoB * 50) pesoA = pesoA / 1000;
+    else if (pesoB >= pesoA * 50) pesoB = pesoB / 1000;
   }
 
-  const diffEmpresa = Math.abs(itemA.freteEmpresa - itemB.freteEmpresa);
-  const diffMotorista = Math.abs(itemA.freteMotorista - itemB.freteMotorista);
-  const diffMargem = Math.abs(itemA.margem - itemB.margem);
-  const diffPeso = Math.abs(pesoA - pesoB);
+  // Previne os clássicos bugs de precisão em ponto flutuante do JS
+  const fixFloat = (val: number) => Number(Math.round(Number(val + 'e2')) + 'e-2');
 
-  const diffEmpresaRounded = Math.round(diffEmpresa * 100) / 100;
-  const diffMotoristaRounded = Math.round(diffMotorista * 100) / 100;
-  const diffMargemRounded = Math.round(diffMargem * 100) / 100;
-  const diffPesoRounded = Math.round(diffPeso * 100) / 100;
+  const diffEmpresa = fixFloat(Math.abs(itemA.freteEmpresa - itemB.freteEmpresa));
+  const diffMotorista = fixFloat(Math.abs(itemA.freteMotorista - itemB.freteMotorista));
+  const diffMargem = fixFloat(Math.abs(itemA.margem - itemB.margem));
+  const diffPeso = fixFloat(Math.abs(pesoA - pesoB));
 
-  const isDivergent = diffEmpresaRounded > 0.00 || diffMotoristaRounded > 0.00;
+  const isDivergent = diffEmpresa > 0 || diffMotorista > 0;
 
   return {
     cte,
     status: isDivergent ? 'BOTH_DIVERGENT' : 'BOTH_MATCH',
     sistemaA: itemA,
     sistemaB: itemB,
-    diferencaMotorista: itemA.freteMotorista - itemB.freteMotorista,
+    diferencaMotorista: fixFloat(itemA.freteMotorista - itemB.freteMotorista),
     divergencias: {
-      freteEmpresa: diffEmpresaRounded > 0.00 ? diffEmpresaRounded : undefined,
-      freteMotorista: diffMotoristaRounded > 0.00 ? diffMotoristaRounded : undefined,
-      margem: diffMargemRounded > 0.00 ? diffMargemRounded : undefined,
-      peso: diffPesoRounded > 0.00 ? diffPesoRounded : undefined,
+      freteEmpresa: diffEmpresa > 0 ? diffEmpresa : undefined,
+      freteMotorista: diffMotorista > 0 ? diffMotorista : undefined,
+      margem: diffMargem > 0 ? diffMargem : undefined,
+      peso: diffPeso > 0 ? diffPeso : undefined,
     }
   };
 };
@@ -291,12 +320,14 @@ export const detectSequentialGaps = (ctes: string[]): string[] => {
     .filter(n => !isNaN(n))
     .sort((a, b) => a - b);
   
-  if (numbers.length < 2) return [];
+  const uniqueNumbers = [...new Set(numbers)];
+  
+  if (uniqueNumbers.length < 2) return [];
   
   const gaps: string[] = [];
-  for (let i = 0; i < numbers.length - 1; i++) {
-    const current = numbers[i];
-    const next = numbers[i + 1];
+  for (let i = 0; i < uniqueNumbers.length - 1; i++) {
+    const current = uniqueNumbers[i];
+    const next = uniqueNumbers[i + 1];
     
     if (next - current > 1) {
       if (next - current === 2) {
@@ -347,7 +378,10 @@ export const exportToPDF = (results: AuditResult[], summary: AuditSummary) => {
   doc.text(`Diferença Empresa: R$ ${(summary.totalEmpresaA - summary.totalEmpresaB).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 62);
   
   if (summary.lacunasSequenciais && summary.lacunasSequenciais.length > 0) {
-    doc.text(`Lacunas Sequenciais: ${summary.lacunasSequenciais.join(', ')}`, 14, 68);
+    const gapsDisplay = summary.lacunasSequenciais.length > 15 
+      ? summary.lacunasSequenciais.slice(0, 15).join(', ') + ` ... (+${summary.lacunasSequenciais.length - 15})`
+      : summary.lacunasSequenciais.join(', ');
+    doc.text(`Lacunas Sequenciais: ${gapsDisplay}`, 14, 68);
   }
 
   // Tabela
@@ -386,7 +420,10 @@ export const shareToWhatsApp = (results: AuditResult[], summary: AuditSummary) =
   text += `🏢 Diferença Empresa: ${formatCurrency(summary.totalEmpresaA - summary.totalEmpresaB)}\n\n`;
 
   if (summary.lacunasSequenciais && summary.lacunasSequenciais.length > 0) {
-    text += `🔍 *Lacunas Sequenciais:* ${summary.lacunasSequenciais.join(', ')}\n\n`;
+    const gapsDisplay = summary.lacunasSequenciais.length > 15 
+      ? summary.lacunasSequenciais.slice(0, 15).join(', ') + ` ... e mais ${summary.lacunasSequenciais.length - 15} lacunas.`
+      : summary.lacunasSequenciais.join(', ');
+    text += `🔍 *Lacunas Sequenciais:* ${gapsDisplay}\n\n`;
   }
 
   const issues = results.filter(r => r.status !== 'BOTH_MATCH');
@@ -410,15 +447,66 @@ export const shareToWhatsApp = (results: AuditResult[], summary: AuditSummary) =
   window.open(`https://wa.me/?text=${encodedText}`, '_blank');
 };
 
+export const exportDivergentToCSV = (results: AuditResult[]) => {
+  const divergent = results.filter(r => r.status === 'BOTH_DIVERGENT');
+  
+  if (divergent.length === 0) {
+    alert("Nenhum documento divergente encontrado para exportar.");
+    return;
+  }
+
+  // Define headers
+  const headers = [
+    'CTE', 
+    'Frete Empresa (A)', 
+    'Frete Empresa (B)', 
+    'Diferença Empresa',
+    'Frete Motorista (A)', 
+    'Frete Motorista (B)', 
+    'Diferença Motorista',
+    'Margem (B)'
+  ];
+
+  // Helper object to enforce string escaping per CSV standard
+  const escapeCsv = (str: any) => `"${String(str).replace(/"/g, '""')}"`;
+
+  const rows = divergent.map(r => {
+    return [
+      escapeCsv(r.cte),
+      r.sistemaA?.freteEmpresa || 0,
+      r.sistemaB?.freteEmpresa || 0,
+      r.divergencias?.freteEmpresa || 0,
+      r.sistemaA?.freteMotorista || 0,
+      r.sistemaB?.freteMotorista || 0,
+      r.diferencaMotorista,
+      r.sistemaB?.margem || 0
+    ].join(',');
+  });
+
+  const csvContent = headers.join(',') + '\n' + rows.join('\n');
+  const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' }); // adding BOM for Excel rendering
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Auditoria_Divergentes_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+
 export const calculateSummary = (results: AuditResult[], footerTotalA?: number): AuditSummary => {
   const totalAnalizados = results.length;
   const faltantes = results.filter(r => r.status === 'A_ONLY' || r.status === 'B_ONLY').length;
   const divergencias = results.filter(r => r.status === 'BOTH_DIVERGENT').length;
   
-  // Valor em Risco = (Total CTEs apenas em A) + (Diferença absoluta entre Motorista A e B nos divergentes)
+  // Valor em Risco = (Total CTEs apenas em A ou B) + (Diferença absoluta entre Motorista A e B nos divergentes)
   let valorTotalDivergencia = 0;
   let totalEmpresaA = 0;
   let totalEmpresaB = 0;
+
+  const fixFloat = (val: number) => Number(Math.round(Number(val + 'e2')) + 'e-2');
 
   results.forEach(r => {
     if (r.sistemaA) totalEmpresaA += r.sistemaA.freteEmpresa;
@@ -426,6 +514,8 @@ export const calculateSummary = (results: AuditResult[], footerTotalA?: number):
 
     if (r.status === 'A_ONLY' && r.sistemaA) {
       valorTotalDivergencia += r.sistemaA.freteEmpresa;
+    } else if (r.status === 'B_ONLY' && r.sistemaB) {
+      valorTotalDivergencia += r.sistemaB.freteEmpresa;
     } else if (r.status === 'BOTH_DIVERGENT') {
       valorTotalDivergencia += Math.abs(r.diferencaMotorista);
     }
@@ -438,9 +528,9 @@ export const calculateSummary = (results: AuditResult[], footerTotalA?: number):
     totalAnalizados,
     faltantes,
     divergencias,
-    valorTotalDivergencia,
-    totalEmpresaA,
-    totalEmpresaB,
+    valorTotalDivergencia: fixFloat(valorTotalDivergencia),
+    totalEmpresaA: fixFloat(totalEmpresaA),
+    totalEmpresaB: fixFloat(totalEmpresaB),
     margemTotal: footerTotalA || 0,
     lacunasSequenciais
   };

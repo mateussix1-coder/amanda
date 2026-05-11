@@ -3,8 +3,8 @@ import { FileUpload } from './components/FileUpload';
 import { KPISection } from './components/KPISection';
 import { AuditTable } from './components/AuditTable';
 import { ColumnMapper } from './components/ColumnMapper';
-import { parseFile, mapData, performAudit, exportToExcel, exportToPDF, shareToWhatsApp, detectSequentialGaps, calculateSummary } from './services/freightService';
-import { autoMapColumns } from './services/extractionService';
+import { parseFile, mapData, performAudit, exportToExcel, exportToPDF, shareToWhatsApp, exportDivergentToCSV, detectSequentialGaps, calculateSummary } from './services/freightService';
+// import removed
 import { DashboardCharts } from './components/DashboardCharts';
 import { HelpCenter } from './components/HelpCenter';
 import { Changelog } from './components/Changelog';
@@ -117,38 +117,22 @@ export default function App() {
     return unsubscribe;
   }, [user]);
 
-  const handleAutoMap = async (system: 'A' | 'B') => {
-    const cols = system === 'A' ? columnsA : columnsB;
-    if (cols.length === 0) return;
+  // handleAutoMap is removed as mapping is constant
 
-    if (system === 'A') setIsMappingA(true);
-    else setIsMappingB(true);
-
-    try {
-      const mapping = await autoMapColumns(cols);
-      if (system === 'A') setMappingA(prev => ({ ...prev, ...mapping }));
-      else setMappingB(prev => ({ ...prev, ...mapping }));
-    } catch (error) {
-      console.error("Erro no Mapeamento Automático:", error);
-    } finally {
-      if (system === 'A') setIsMappingA(false);
-      else setIsMappingB(false);
-    }
-  };
 
   useEffect(() => {
     if (columnsA.length > 0) {
       const mapping = { ...DEFAULT_MAPPING };
       columnsA.forEach(col => {
         const lower = col.toLowerCase();
-        if (lower === 'número' || lower === 'numero' || lower === 'ct' || lower.includes('documento')) mapping.cte = col;
-        if (lower === 'frete empr.' || lower === 'frete empr') mapping.freteEmpresa = col;
-        if (lower === 'frete mot.' || lower === 'frete mot') mapping.freteMotorista = col;
-        if (lower.includes('result') || lower.includes('margem') || lower === '%' || lower.includes('(%)')) mapping.margem = col;
-        if (lower.includes('peso (ton)') || lower.includes('peso ton') || lower.includes('peso')) mapping.peso = col;
+        if (lower === 'cte' || lower === 'número' || lower === 'numero' || lower === 'ct' || lower.includes('documento')) mapping.cte = col;
+        if (lower === 'freteempresa' || lower === 'frete empresa' || lower === 'frete empr.' || lower === 'frete empr') mapping.freteEmpresa = col;
+        if (lower === 'fretemotorista' || lower === 'frete motorista' || lower === 'frete mot.' || lower === 'frete mot') mapping.freteMotorista = col;
+        if (lower === 'margem' || lower.includes('result') || lower.includes('margem') || lower === '%' || lower.includes('(%)')) mapping.margem = col;
+        if (lower === 'peso' || lower.includes('peso (ton)') || lower.includes('peso ton') || lower.includes('peso')) mapping.peso = col;
       });
       setMappingA(mapping);
-      handleAutoMap('A');
+      // handleAutoMap('A'); // removed automatic call to avoid unnecessary API quota usage
     }
   }, [columnsA]);
 
@@ -157,16 +141,24 @@ export default function App() {
       const mapping = { ...DEFAULT_MAPPING };
       columnsB.forEach(col => {
         const lower = col.toLowerCase();
-        if (lower === 'cte/nfs' || lower === 'cte' || lower.includes('numero')) mapping.cte = col;
-        if (lower === 'valor frete') mapping.freteEmpresa = col;
-        if (lower === 'vl carreteiro' || lower === 'vl carreteiro líquido' || lower === 'vl carreteiro liquido') mapping.freteMotorista = col;
-        if (lower.includes('result') || lower.includes('margem') || lower === '%' || lower.includes('(%)')) mapping.margem = col;
-        if (lower.includes('peso / kg') || lower.includes('peso kg') || lower.includes('peso')) mapping.peso = col;
+        if (lower === 'cte' || lower === 'cte/nfs' || lower.includes('numero')) mapping.cte = col;
+        if (lower === 'freteempresa' || lower === 'frete empresa' || lower === 'valor frete') mapping.freteEmpresa = col;
+        if (lower === 'fretemotorista' || lower === 'frete motorista' || lower === 'vl carreteiro' || lower === 'vl carreteiro líquido' || lower === 'vl carreteiro liquido') mapping.freteMotorista = col;
+        if (lower === 'margem' || lower.includes('result') || lower.includes('margem') || lower === '%' || lower.includes('(%)')) mapping.margem = col;
+        if (lower === 'peso' || lower.includes('peso / kg') || lower.includes('peso kg') || lower.includes('peso')) mapping.peso = col;
       });
       setMappingB(mapping);
-      handleAutoMap('B');
+      // handleAutoMap('B'); // removed automatic call to avoid unnecessary API quota usage
     }
   }, [columnsB]);
+
+  // Auto-audit when ready
+  useEffect(() => {
+    const canAudit = rawA.length > 0 && rawB.length > 0 && mappingA.cte && mappingB.cte;
+    if (!isParsingA && !isParsingB && canAudit && results.length === 0 && !isProcessing) {
+      handleAudit();
+    }
+  }, [isParsingA, isParsingB, rawA, rawB, mappingA, mappingB, results, isProcessing]);
 
   const handleAudit = () => {
     if (isParsingA || isParsingB) return;
@@ -332,6 +324,11 @@ export default function App() {
                 </Button>
                 {results.length > 0 && (
                   <div className="flex gap-2">
+                    {summary.divergencias > 0 && (
+                      <Button onClick={() => exportDivergentToCSV(results)} variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50">
+                        <Download className="mr-2 h-4 w-4" /> CSV Divergentes
+                      </Button>
+                    )}
                     <Button onClick={() => exportToExcel(results)} variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                       <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
                     </Button>
@@ -381,26 +378,9 @@ export default function App() {
                     </div>
                   )}
                   {!isParsingA && columnsA.length > 0 && (
-                    <div className="space-y-4 bg-zinc-50 p-4 rounded-lg border border-zinc-100">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-zinc-700">Mapeamento de Colunas</span>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleAutoMap('A')} 
-                          disabled={isMappingA}
-                          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                        >
-                          <RefreshCcw className={cn("mr-2 h-4 w-4", isMappingA && "animate-spin")} /> 
-                          {isMappingA ? "Mapeando..." : "Mapeamento Automático"}
-                        </Button>
-                      </div>
-                      <ColumnMapper 
-                        title="" 
-                        columns={columnsA} 
-                        mapping={mappingA} 
-                        onMappingChange={setMappingA} 
-                      />
+                    <div className="flex items-center p-4 text-sm text-emerald-700 bg-emerald-50 rounded-lg border border-emerald-200">
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      {rawA.length} registros extraídos com sucesso.
                     </div>
                   )}
                 </CardContent>
@@ -440,26 +420,9 @@ export default function App() {
                     </div>
                   )}
                   {!isParsingB && columnsB.length > 0 && (
-                    <div className="space-y-4 bg-zinc-50 p-4 rounded-lg border border-zinc-100">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-zinc-700">Mapeamento de Colunas</span>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleAutoMap('B')} 
-                          disabled={isMappingB}
-                          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                        >
-                          <RefreshCcw className={cn("mr-2 h-4 w-4", isMappingB && "animate-spin")} /> 
-                          {isMappingB ? "Mapeando..." : "Mapeamento Automático"}
-                        </Button>
-                      </div>
-                      <ColumnMapper 
-                        title="" 
-                        columns={columnsB} 
-                        mapping={mappingB} 
-                        onMappingChange={setMappingB} 
-                      />
+                    <div className="flex items-center p-4 text-sm text-emerald-700 bg-emerald-50 rounded-lg border border-emerald-200">
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      {rawB.length} registros extraídos com sucesso.
                     </div>
                   )}
                 </CardContent>
